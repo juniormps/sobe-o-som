@@ -59,6 +59,17 @@ npm start
 
 ## Qualidade
 
+O projeto usa quatro espaços para indentação, sem caracteres de tabulação.
+
+Formate os arquivos de código e configuração ou apenas verifique a formatação:
+
+```bash
+npm run format
+npm run format:check
+```
+
+Execute as demais verificações de qualidade:
+
 ```bash
 npm run lint
 npm run typecheck
