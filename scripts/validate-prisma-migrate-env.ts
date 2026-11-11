@@ -29,9 +29,12 @@ function getDatabaseDestination(value: string, name: string) {
         throw new Error(`${name} deve identificar host e banco PostgreSQL.`);
     }
 
-    const hostname = ["localhost", "::1"].includes(url.hostname.toLowerCase())
+    const normalizedHostname = url.hostname
+        .toLowerCase()
+        .replace(/^\[(.*)\]$/, "$1");
+    const hostname = ["localhost", "::1"].includes(normalizedHostname)
         ? "127.0.0.1"
-        : url.hostname.toLowerCase();
+        : normalizedHostname;
     const port = url.port || "5432";
 
     return `${hostname}:${port}/${database}`;

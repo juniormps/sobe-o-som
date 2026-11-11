@@ -14,14 +14,16 @@ Já implementado nesta etapa:
 - Prisma 7 estável com PostgreSQL, adaptador `pg` e cliente exclusivo do servidor;
 - modelos `Category` e `Product`, migração versionada e restrições de preço;
 - seed idempotente com seis gêneros e 24 discos fictícios;
+- base de autenticação com NextAuth 4, adaptador Prisma, modelos `User` e
+  `Account` e sessão JWT de sete dias;
 - comandos de lint, verificação de tipos e build de produção.
 
 Planejado, mas ainda não implementado:
 
 - telas de catálogo, busca, filtros e detalhes de discos;
 - carrinho e checkout demonstrativo;
-- autenticação e histórico de pedidos;
-- modelos de autenticação e pedidos;
+- cadastro, login, logout, rotas OAuth e histórico de pedidos;
+- modelos de pedidos;
 - testes automatizados e Docker.
 
 O produto completo e seus limites estão descritos no
@@ -49,6 +51,11 @@ O `postinstall` gera o Prisma Client sem abrir conexão e não exige variáveis 
 banco. Crie os bancos principal e shadow e copie os valores fictícios de
 `.env.example` para um arquivo `.env`, substituindo usuário e senha pelos dados do
 ambiente local. Os dois endereços nunca devem apontar para o mesmo banco.
+
+Antes de ativar a autenticação, substitua também os valores fictícios de
+`NEXTAUTH_SECRET`, Google e Facebook. A configuração usa os nomes de variáveis do
+NextAuth 4, não os nomes `AUTH_*` da versão 5. O arquivo `.env` local permanece
+ignorado pelo Git.
 
 Prepare o banco de desenvolvimento e carregue o catálogo demonstrativo:
 
@@ -95,6 +102,10 @@ Categorias mantêm nomes e slugs únicos. Produtos podem compartilhar o título 
 álbum em `name`, permitindo edições ou artistas distintos, mas cada produto mantém
 `id` e `slug` únicos.
 
+Os modelos de autenticação e a estratégia de sessão estão detalhados em
+[docs/auth-model.md](docs/auth-model.md). Esta etapa prepara o adaptador e os
+provedores, mas ainda não publica rotas nem implementa cadastro ou login.
+
 Variáveis exigidas por operação:
 
 - `prisma:generate`, `postinstall`, `prisma:validate` e `build`: nenhuma conexão;
@@ -103,6 +114,17 @@ Variáveis exigidas por operação:
 - `prisma:migrate`: `DATABASE_URL` e `SHADOW_DATABASE_URL`, obrigatoriamente para
   bancos distintos;
 - futuras migrações de produção: somente `DATABASE_URL`, sem banco shadow.
+
+Variáveis de autenticação previstas:
+
+- `NEXTAUTH_URL`: origem pública da aplicação, como `http://localhost:3000` em
+  desenvolvimento;
+- `NEXTAUTH_SECRET`: segredo aleatório e exclusivo de cada ambiente para assinar e
+  criptografar os tokens;
+- `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`: credenciais do cliente OAuth do
+  Google;
+- `FACEBOOK_CLIENT_ID` e `FACEBOOK_CLIENT_SECRET`: identificador e segredo do
+  aplicativo no Facebook.
 
 Comandos disponíveis:
 
