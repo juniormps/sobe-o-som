@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique @db.VarChar(80)
+  slug      String    @unique @db.VarChar(80)
+  products  Product[]
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+}
+
+model Product {
+  id                    String   @id @default(uuid()) @db.Uuid
+  categoryId            String   @db.Uuid
+  name                  String   @unique @db.VarChar(160)
+  slug                  String   @unique @db.VarChar(180)
+  artist                String   @db.VarChar(120)
+  releaseYear           Int      @db.SmallInt
+  description           String   @db.Text
+  coverPath             String   @db.VarChar(255)
+  priceInCents          Int
+  referencePriceInCents Int?
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+  category              Category @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([categoryId, isActive, name])
+  @@index([isActive, referencePriceInCents])
+}

@@ -12,6 +12,7 @@
 /.next/
 /out/
 /build/
+/src/generated/prisma/
 
 # Test coverage
 /coverage/

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title description">
+    <title id="title">Capa provisoria do album</title>
+    <desc id="description">Placeholder geometrico reutilizavel para os discos demonstrativos.</desc>
+    <rect width="800" height="800" fill="#452327" />
+    <circle cx="400" cy="400" r="280" fill="#241c19" />
+    <circle cx="400" cy="400" r="115" fill="#f3c76a" />
+    <circle cx="400" cy="400" r="20" fill="#b63e25" />
+</svg>
