@@ -2,7 +2,6 @@ import "server-only";
 
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import type { NextAuthOptions } from "next-auth";
-import FacebookProvider from "next-auth/providers/facebook";
 import GoogleProvider from "next-auth/providers/google";
 
 import { prisma } from "@/lib/prisma";
@@ -25,10 +24,6 @@ export const authOptions = {
         GoogleProvider({
             clientId: getRequiredVariable("GOOGLE_CLIENT_ID"),
             clientSecret: getRequiredVariable("GOOGLE_CLIENT_SECRET"),
-        }),
-        FacebookProvider({
-            clientId: getRequiredVariable("FACEBOOK_CLIENT_ID"),
-            clientSecret: getRequiredVariable("FACEBOOK_CLIENT_SECRET"),
         }),
     ],
     session: {

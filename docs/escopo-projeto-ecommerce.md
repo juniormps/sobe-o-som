@@ -1,12 +1,12 @@
 # Sobe o Som — escopo e plano de evolução
 
-Versão deste documento: 0.7 · Data: 03/11/2026 · Responsável pelo projeto: Márcio Junior.
+Versão deste documento: 0.8 · Data: 11/11/2026 · Responsável pelo projeto: Márcio Junior.
 
-Este documento registra o escopo a partir da conversa inicial e do planejamento de 03/11/2026. O projeto ainda não foi implementado. Foram confirmados pelo responsável: nome Sobe o Som, loja de discos de vinil, estilização com Tailwind do início ao fim, NextAuth para autenticação social e os métodos e-mail/senha, Google e Facebook desde a V1, preservados na V2. Também estão confirmados: header com categorias abaixo da busca, incluindo Sale; carrossel imediatamente após o header completo; fundo branco ou quase branco no catálogo; frase “Discos para ouvir, capas para guardar”; e rodapé com opções institucionais e de atendimento. A seção 17 detalha a direção visual; cores de apoio e tipografia continuam como proposta.
+Este documento registra o escopo a partir da conversa inicial e do planejamento de 03/11/2026. Foram confirmados pelo responsável: nome Sobe o Som, loja de discos de vinil, estilização com Tailwind do início ao fim, NextAuth para autenticação social, Google como único provedor social e os métodos e-mail/senha na V1, preservados na V2. Também estão confirmados: header com categorias abaixo da busca, incluindo Sale; carrossel imediatamente após o header completo; fundo branco ou quase branco no catálogo; frase “Discos para ouvir, capas para guardar”; e rodapé com opções institucionais e de atendimento. A seção 17 detalha a direção visual; cores de apoio e tipografia continuam como proposta.
 
 ## 1. Objetivo e limites
 
-Construir uma loja demonstrativa de discos de vinil para praticar Next.js e apresentar no portfólio, com um fluxo completo de catálogo musical, carrinho, autenticação por e-mail/senha ou Google/Facebook e pedido simulado. Toda a estilização será feita com Tailwind. Posteriormente, manter o mesmo produto e transferir o backend para Nest.js, acrescentando Docker e aprofundando os testes.
+Construir uma loja demonstrativa de discos de vinil para praticar Next.js e apresentar no portfólio, com um fluxo completo de catálogo musical, carrinho, autenticação por e-mail/senha ou Google e pedido simulado. Toda a estilização será feita com Tailwind. Posteriormente, manter o mesmo produto e transferir o backend para Nest.js, acrescentando Docker e aprofundando os testes.
 
 A aplicação terá uma única loja, um idioma (português do Brasil), uma moeda (BRL) e um único perfil de usuário (cliente). Todos os pedidos serão simulações: não haverá cobrança, entrega ou movimentação de estoque.
 
@@ -43,14 +43,14 @@ Imagens devem ser próprias ou ter uso permitido, com créditos quando exigidos.
 | RF05 | Carrinho | Adicionar, remover, alterar quantidade e visualizar subtotal; consolidar o mesmo produto em uma linha |
 | RF06 | Persistência do carrinho | Manter itens no mesmo navegador após recarregar, inclusive como visitante; preservar na entrada da conta; não sincronizar entre dispositivos |
 | RF07 | Cadastro | Nome, e-mail, senha e confirmação; validação no servidor, e-mail único normalizado e senha armazenada como hash |
-| RF08 | Sessão | Login com e-mail/senha, Google ou Facebook; primeiro acesso social pode criar a conta; logout, identificação no cabeçalho e expiração da sessão |
+| RF08 | Sessão | Login com e-mail/senha ou Google; primeiro acesso social pode criar a conta; logout, identificação no cabeçalho e expiração da sessão |
 | RF09 | Revisão da compra | Exigir autenticação; mostrar itens e valores atuais obtidos no servidor, aviso de simulação e ação de confirmar |
 | RF10 | Criar pedido | Validar novamente os itens, calcular valores no servidor e gravar pedido e itens de forma atômica; não solicitar endereço, CPF ou cartão |
 | RF11 | Confirmação | Exibir identificador, data, itens e total do pedido registrado; limpar carrinho após confirmação bem-sucedida |
 | RF12 | Meus pedidos | Listagem paginada do cliente, do mais recente para o mais antigo, com identificação, data e total; estado vazio |
 | RF13 | Detalhe do pedido | Exibir apenas pedido pertencente ao usuário autenticado, com nome e preço históricos dos itens |
 | RF14 | Estados de interface | Carregamento, envio, erro, vazio, sessão expirada e página não encontrada; possibilidade de recuperação quando aplicável |
-| RF15 | Login social | Integração real com Google e Facebook, cancelamento/erro tratados e retorno ao checkout preservando o carrinho; nenhum botão apenas decorativo |
+| RF15 | Login social | Integração real com Google, cancelamento/erro tratados e retorno ao checkout preservando o carrinho; nenhum botão apenas decorativo |
 | RF16 | Carrossel principal | Na página inicial, imediatamente abaixo do header; 3 banners editoriais com imagem/arte, título, texto curto e link para catálogo ou gênero; setas, indicadores e uso por teclado; conteúdo estático, sem painel administrativo |
 | RF17 | Navegação por categorias | Preservar marca, busca, conta e carrinho do header proposto; adicionar linha abaixo da busca com Todos os discos, os seis gêneros e Sale; remover o menu de categorias que ficava abaixo do carrossel |
 | RF18 | Rodapé | Exibir Sobre, Contato, Trocas e devoluções, Política de trocas e devoluções, Política de privacidade e Formas de pagamento; páginas completas podem ser entregues depois, com alternativas informativas para itens ainda indisponíveis |
@@ -66,7 +66,7 @@ Ao fazer logout, limpar o carrinho local para evitar que outra conta herde itens
 | `/produtos/[slug]` | Público | Detalhes e adição ao carrinho |
 | `/carrinho` | Público | Itens, quantidades e subtotal estimado |
 | `/cadastro` | Público | Criação de conta |
-| `/login` | Público | Entrada por e-mail/senha e botões “Continuar com Google” e “Continuar com Facebook” |
+| `/login` | Público | Entrada por e-mail/senha e botão “Continuar com Google” |
 | `/checkout` | Autenticado | Revisão e confirmação da compra simulada |
 | `/pedidos` | Autenticado | Histórico paginado do cliente |
 | `/pedidos/[id]` | Dono do pedido | Detalhe e confirmação do pedido; evita uma página extra de sucesso |
@@ -74,9 +74,9 @@ Ao fazer logout, limpar o carrinho local para evitar que outra conta herde itens
 
 O login iniciado no checkout retorna para ele, preservando o carrinho. Qualquer parâmetro de retorno deve aceitar apenas rotas internas permitidas.
 
-O cadastro também oferece os acessos sociais. Rotas técnicas de autenticação/callback serão fornecidas pela biblioteca escolhida. Páginas enxutas de privacidade e instruções de exclusão de dados serão acrescentadas quando exigidas na configuração dos provedores; não constituem uma área de gestão de perfil.
+O cadastro também oferece o acesso social pelo Google. Rotas técnicas de autenticação/callback serão fornecidas pela biblioteca escolhida. Páginas enxutas de privacidade e instruções de exclusão de dados serão acrescentadas quando exigidas na configuração do provedor; não constituem uma área de gestão de perfil.
 
-As demais páginas institucionais do footer não são requisito de implementação completa nesta primeira etapa. Itens ainda não implementados devem ser identificados como “Em breve” ou abrir uma informação breve, sem links que levem a páginas inexistentes. As informações necessárias à publicação de Google/Facebook continuam seguindo o requisito de autenticação acima.
+As demais páginas institucionais do footer não são requisito de implementação completa nesta primeira etapa. Itens ainda não implementados devem ser identificados como “Em breve” ou abrir uma informação breve, sem links que levem a páginas inexistentes. As informações necessárias à publicação do Google continuam seguindo o requisito de autenticação acima.
 
 ## 5. Regras de negócio obrigatórias
 
@@ -108,13 +108,13 @@ As demais páginas institucionais do footer não são requisito de implementaç�
 - Cadastro por credenciais exige nome, e-mail válido, senha e confirmação iguais. Base proposta: senha entre 12 e 128 caracteres, sem corte silencioso. Cadastro social não exige criar senha local.
 - Normalizar e-mail com remoção de espaços externos e conversão para minúsculas; unicidade protegida no banco.
 - Senha recebe hash com algoritmo apropriado suportado pela biblioteca, como Argon2id ou scrypt; nunca armazenar texto puro nem criar algoritmo próprio. Contas exclusivamente sociais não têm senha local.
-- Biblioteca confirmada: NextAuth (Auth.js, pacote `next-auth`) para o login social com Google e Facebook. O login por e-mail/senha permanece no escopo e será integrado à autenticação da aplicação. A configuração de credenciais, Prisma e sessão será fechada no início da implementação, considerando a futura integração com Nest; não implementar OAuth manualmente. O NextGram usa Auth.js com Google e sessão JWT, servindo como referência funcional.
-- Sessão em cookie HttpOnly, Secure em produção, SameSite apropriado e validade explícita; duração inicial proposta de 7 dias. A forma de persistência e revogação seguirá uma estratégia do NextAuth compatível com os três métodos de entrada. A proposta anterior de token opaco com hash no banco não é uma exigência fechada. Logout invalida a sessão conforme o mecanismo adotado e limpa o cookie.
-- Google e Facebook entram na V1 e continuam disponíveis na V2. O primeiro acesso social cria usuário e vínculo com o provedor quando ainda não existem. Retornos posteriores usam a identidade estável do provedor, não o e-mail como identificador OAuth.
+- Biblioteca confirmada: NextAuth (Auth.js, pacote `next-auth`) para o login social com Google. O login por e-mail/senha permanece no escopo e será integrado à autenticação da aplicação. A configuração existente inclui Google, Prisma e sessão JWT de sete dias; o provider de credenciais e os fluxos de login ainda não foram implementados. A futura integração com Nest deve preservar essas decisões; não implementar OAuth manualmente. O NextGram usa Auth.js com Google e sessão JWT, servindo como referência funcional.
+- Sessão em cookie HttpOnly, Secure em produção, SameSite apropriado e validade explícita; duração definida em 7 dias. A forma de persistência e revogação seguirá a estratégia JWT do NextAuth, compatível com os dois métodos de entrada. A proposta anterior de token opaco com hash no banco não é uma exigência fechada. Logout invalida a sessão conforme o mecanismo adotado e limpa o cookie.
+- Google entra na V1 e continua disponível na V2 como único provedor social. O primeiro acesso social cria usuário e vínculo com o provedor quando ainda não existem. Retornos posteriores usam a identidade estável do provedor, não o e-mail como identificador OAuth.
 - O vínculo social tem unicidade por provedor e identificador da conta. Não juntar automaticamente contas apenas por igualdade de e-mail. Se o e-mail já pertencer a outra conta, informar o conflito e orientar o uso do método original; vinculação explícita de múltiplos métodos e definição posterior de senha ficam no backlog.
 - Se o provedor não retornar o e-mail necessário ao cadastro, tratar a situação com mensagem e orientar outro método de entrada; não inventar e-mail nem criar usuário incompleto.
-- Tratar autorização cancelada, falha no callback e indisponibilidade do provedor sem perder carrinho ou expor tokens. Senhas de Google/Facebook são digitadas somente nos próprios provedores.
-- Configurar aplicações de desenvolvimento e produção, client IDs, segredos e URLs de retorno nos provedores. Segredos ficam no servidor. Solicitar apenas os dados necessários à autenticação e documentar os requisitos de publicação vigentes; testar com contas além das contas de desenvolvimento antes de considerar os provedores liberados para o público.
+- Tratar autorização cancelada, falha no callback e indisponibilidade do provedor sem perder carrinho ou expor tokens. A senha do Google é digitada somente no próprio provedor.
+- Configurar aplicações de desenvolvimento e produção, client IDs, segredos e URLs de retorno no Google. Segredos ficam no servidor. Solicitar apenas os dados necessários à autenticação e documentar os requisitos de publicação vigentes; testar com contas além das contas de desenvolvimento antes de considerar o provedor liberado para o público.
 - Dados de autenticação não ficam em localStorage. Acesso a páginas protegidas e operações sensíveis verifica a sessão no servidor.
 - Requisições de alteração precisam de proteção contra CSRF e validação de origem conforme o mecanismo utilizado. Cookies, sozinhos, não substituem essa proteção.
 - Tentativas de login/cadastro devem ter limitação compatível com o ambiente de implantação; login inválido apresenta mensagem genérica.
@@ -148,7 +148,7 @@ Migrações versionadas, índices para filtros e histórico, restrições de int
 | Renderização | Server Components para catálogo e páginas de dados; Client Components nas partes interativas |
 | Mutações | Server Actions nas operações da loja; autenticação usa os handlers/actions fornecidos pela biblioteca, sem duplicar os fluxos OAuth |
 | Dados | Prisma e PostgreSQL desde o início |
-| Autenticação | NextAuth (Auth.js / `next-auth`) confirmado para Google e Facebook; integrar também o login por e-mail/senha e definir a estratégia de sessão na configuração inicial |
+| Autenticação | NextAuth (Auth.js / `next-auth`) configurado para Google com sessão JWT de sete dias; integrar também o login por e-mail/senha, ainda não implementado |
 | Validação | Schemas de entrada no servidor, com Zod como opção inicial |
 | Carrinho | Context + reducer e persistência local; sem necessidade inicial de Redux |
 | Estilos | Tailwind CSS do início ao fim, em todas as telas e estados, preservado na V2; sem CSS Modules como estratégia paralela |
@@ -173,11 +173,11 @@ Route Handlers serão usados quando existir necessidade HTTP concreta, incluindo
 - Metadados básicos e páginas de produto com título adequado; sem campanha de SEO ou metas arbitrárias de pontuação.
 - Testes focados em comportamento: cálculo monetário, quantidades inválidas, preço adulterado, produto inativo, acesso ao pedido de outra conta e repetição de confirmação.
 - Teste do fluxo principal: catálogo → carrinho → login/cadastro → revisão → pedido → histórico. Falha na criação não limpa o carrinho.
-- Testar os três métodos de entrada, criação e retorno de usuário social, conflito de identidade/e-mail, cancelamento e falha no callback. Automação usa fronteiras simuladas/controladas para os provedores; validação manual confirma os fluxos OAuth reais sem automatizar a tela de senha do Google/Facebook.
+- Testar os dois métodos de entrada, criação e retorno de usuário social, conflito de identidade/e-mail, cancelamento e falha no callback. Automação usa fronteiras simuladas/controladas para o provedor; validação manual confirma o fluxo OAuth real sem automatizar a tela de senha do Google.
 - CI no GitHub Actions executa instalação reproduzível, lint, tipos, testes e build. Testes que precisarem de banco usam instância isolada.
 - Teste manual do layout, persistência do carrinho, expiração de sessão e ausência de compartilhamento de dados entre contas.
 - Publicação funcional com PostgreSQL persistente, HTTPS e variáveis seguras. Provedor e eventual custo serão definidos na implantação, sem depender de plano gratuito presumido.
-- Google e Facebook configurados e validados em produção, com a situação de liberação pública documentada. Eventuais pendências externas não devem ser apresentadas como funcionalidade concluída nem removidas silenciosamente do escopo.
+- Google configurado e validado em produção, com a situação de liberação pública documentada. Eventuais pendências externas não devem ser apresentadas como funcionalidade concluída nem removidas silenciosamente do escopo.
 - README com objetivo, demonstração, imagens, stack, instalação, variáveis, migrações, seed, testes, limites da simulação e decisões de arquitetura.
 - Tag `v1.0.0` identifica a primeira entrega completa. A V2 só começa depois que a V1 estiver publicada, validada e documentada.
 
@@ -187,10 +187,10 @@ O objetivo funcional permanece igual ao da V1. A segunda versão não exige pain
 
 | Entrega | O que muda |
 | --- | --- |
-| API Nest.js | Módulos de autenticação por credenciais/Google/Facebook, catálogo e pedidos; integra biblioteca de autenticação, aplica regras e acessa PostgreSQL com Prisma |
+| API Nest.js | Módulos de autenticação por credenciais/Google, catálogo e pedidos; integra biblioteca de autenticação, aplica regras e acessa PostgreSQL com Prisma |
 | Frontend Next.js | Mantém páginas, componentes, estilização Tailwind, navegação e carrinho; adapta a camada de dados e as operações de formulário |
 | Validação e acesso | DTOs/schemas validados no servidor, guards de sessão e verificação de propriedade dos pedidos |
-| Banco | Preserva usuários, vínculos Google/Facebook, produtos, pedidos, hashes de senha e migrações; Nest torna-se o proprietário do acesso aos dados, inclusive autenticação |
+| Banco | Preserva usuários, vínculos Google, produtos, pedidos, hashes de senha e migrações; Nest torna-se o proprietário do acesso aos dados, inclusive autenticação |
 | Contrato HTTP | Rotas, entradas, respostas e erros documentados; Swagger/OpenAPI na API |
 | Docker | Imagens para web e API; Compose para web, API e PostgreSQL em ambiente local, com rede, volume e verificações de saúde |
 | Testes | Regras portadas/reutilizadas, integração da API com PostgreSQL real isolado e repetição dos fluxos de navegador contra a nova arquitetura |
@@ -211,7 +211,7 @@ Rotas de autenticação abaixo expressam operações previstas; nomes e métodos
 | `POST /api/auth/login` | Autenticar e emitir sessão |
 | `POST /api/auth/logout` | Revogar sessão e limpar cookie |
 | `GET /api/auth/me` | Consultar usuário da sessão |
-| `GET /api/auth/:provider` | Iniciar login com Google ou Facebook; formato final depende da biblioteca |
+| `GET /api/auth/:provider` | Iniciar login com Google; formato final depende da biblioteca |
 | `GET /api/auth/callback/:provider` | Processar retorno do provedor e estabelecer sessão após validação |
 | `POST /api/checkout/preview` | Revalidar carrinho e produzir revisão; autenticado |
 | `POST /api/orders` | Confirmar pedido da revisão com prevenção de duplicação; autenticado |
@@ -227,7 +227,7 @@ Manter um único domínio/origem para a interface e suas chamadas de navegador, 
 
 O Nest valida sessões e decide permissões, mesmo quando a chamada veio do Next. No Next ficam apenas encaminhamento, apresentação e adaptações de interface, sem um segundo cálculo de pedido e sem acesso direto ao Prisma. Cookies recebidos e respostas de login/logout precisam ser encaminhados explicitamente quando houver uma camada intermediária.
 
-A estratégia de sessão escolhida na V1 será preservada quando compatível; adotar Nest não exige trocar entre token opaco e JWT. Credenciais, início e retorno OAuth e validação da sessão devem migrar de maneira coerente para o backend Nest, sem manter um segundo serviço de autenticação no Next. Configurações de callback de Google/Facebook devem ser revisadas na mudança de roteamento. Manter a origem reduz problemas de cookies entre sites, mas não elimina validação de origem/CSRF. Se a hospedagem exigir outra topologia, revisar cookies, CORS, credenciais e proteção contra CSRF antes de publicar.
+A estratégia de sessão escolhida na V1 será preservada quando compatível; adotar Nest não exige trocar entre token opaco e JWT. Credenciais, início e retorno OAuth e validação da sessão devem migrar de maneira coerente para o backend Nest, sem manter um segundo serviço de autenticação no Next. A configuração de callback do Google deve ser revisada na mudança de roteamento. Manter a origem reduz problemas de cookies entre sites, mas não elimina validação de origem/CSRF. Se a hospedagem exigir outra topologia, revisar cookies, CORS, credenciais e proteção contra CSRF antes de publicar.
 
 ### Ordem da migração
 
@@ -235,7 +235,7 @@ A estratégia de sessão escolhida na V1 será preservada quando compatível; ad
 2. Criar branch `feat/nest-migration` e reorganizar o mesmo repositório para `apps/web` e `apps/api`, usando workspaces simples.
 3. Configurar Nest, PostgreSQL local com Docker e base de testes.
 4. Portar catálogo e integrar suas consultas no Next, validando o contrato.
-5. Portar autenticação por e-mail/senha, Google e Facebook junto da sessão e dos pedidos, preservando vínculos e regras; testar callbacks e acesso em ambiente isolado, sem dois backends de produção gravando sem coordenação.
+5. Portar autenticação por e-mail/senha e Google junto da sessão e dos pedidos, preservando vínculos e regras; testar callbacks e acesso em ambiente isolado, sem dois backends de produção gravando sem coordenação.
 6. Retirar Prisma e regras de negócio do Next; conferir que apenas a API acessa os dados de negócio.
 7. Completar Compose da aplicação, testes, CI e documentação; validar a migração em ambiente de teste com cópia segura dos dados quando necessário.
 8. Publicar V2, verificar os fluxos, integrar a branch e marcar `v2.0.0`.
@@ -247,7 +247,7 @@ Docker na V2 serve primeiro para ambiente reproduzível de desenvolvimento/teste
 ## 10. Critérios de conclusão da V2
 
 - Todos os fluxos e regras da V1 continuam funcionando; a aparência não precisa ser redesenhada.
-- Tailwind permanece como base de toda a estilização; os três métodos de entrada continuam operacionais e os usuários sociais mantêm seus pedidos.
+- Tailwind permanece como base de toda a estilização; os dois métodos de entrada continuam operacionais e os usuários sociais mantêm seus pedidos.
 - API Nest responsável por autenticação, autorização, preços, pedidos e persistência; Next sem conexão de negócio com o banco.
 - Contrato HTTP documentado com exemplos e erros previsíveis; dados pessoais permanecem privados.
 - Testes de integração cobrem sessão, isolamento de pedidos, validação dos valores, persistência atômica e prevenção de duplicação.
@@ -258,7 +258,7 @@ Docker na V2 serve primeiro para ambiente reproduzível de desenvolvimento/teste
 
 ## 11. Fora das duas entregas
 
-Os itens abaixo são backlog, sem compromisso ou data: painel administrativo e perfil de administrador; upload de imagens; controle/reserva de estoque; seletor de variantes e prensagens; gestão de discos usados e classificação de conservação; faixas completas e reprodução de áudio; integração de pagamento e webhooks; cálculo e integração de frete; endereço; cupons e motor de campanhas promocionais (a seleção simples Sale entra na V1); favoritos; avaliações; notificações e e-mails transacionais; recuperação de senha; envio próprio de confirmação de e-mail; provedores sociais além de Google e Facebook; vinculação/desvinculação explícita de métodos de entrada e criação posterior de senha para conta social; carrinho sincronizado no banco; compra sem conta; cancelamento, devolução e reembolso operacionais; páginas institucionais completas não exigidas na publicação da autenticação; dashboards de vendas; múltiplos vendedores; múltiplas moedas/idiomas; aplicativo mobile.
+Os itens abaixo são backlog, sem compromisso ou data: painel administrativo e perfil de administrador; upload de imagens; controle/reserva de estoque; seletor de variantes e prensagens; gestão de discos usados e classificação de conservação; faixas completas e reprodução de áudio; integração de pagamento e webhooks; cálculo e integração de frete; endereço; cupons e motor de campanhas promocionais (a seleção simples Sale entra na V1); favoritos; avaliações; notificações e e-mails transacionais; recuperação de senha; envio próprio de confirmação de e-mail; provedores sociais além do Google, inclusive Facebook; vinculação/desvinculação explícita de métodos de entrada e criação posterior de senha para conta social; carrinho sincronizado no banco; compra sem conta; cancelamento, devolução e reembolso operacionais; páginas institucionais completas não exigidas na publicação da autenticação; dashboards de vendas; múltiplos vendedores; múltiplas moedas/idiomas; aplicativo mobile.
 
 Também ficam fora: microserviços, filas, Redis, Kubernetes, Elasticsearch, GraphQL e arquitetura distribuída. Só reconsiderar uma tecnologia com necessidade demonstrada.
 
@@ -267,10 +267,10 @@ Também ficam fora: microserviços, filas, Redis, Kubernetes, Elasticsearch, Gra
 | Marco | Entregável verificável |
 | --- | --- |
 | M0 | Definir direção visual da Sobe o Som; criar repositório próprio e levar este escopo para `docs/escopo.md` |
-| M1 | Configurar projeto com Tailwind, PostgreSQL, Prisma, migrações e seed; configurar NextAuth, definir sessão e validar cedo configuração de Google/Facebook |
+| M1 | Configurar projeto com Tailwind, PostgreSQL, Prisma, migrações e seed; configurar NextAuth, definir sessão e validar cedo a configuração do Google |
 | M2 | Header com categorias/Sale, carrossel, catálogo branco, busca por álbum/artista, filtro Sale, paginação, detalhe e footer responsivos |
 | M3 | Carrinho, quantidades, persistência e estados vazios |
-| M4 | Cadastro, login por e-mail/senha, Google e Facebook, sessão, logout, callbacks e proteção das operações |
+| M4 | Cadastro, login por e-mail/senha e Google, sessão, logout, callbacks e proteção das operações |
 | M5 | Revisão, criação atômica do pedido, confirmação e histórico |
 | M6 | Concluir testes prioritários, revisão de acessibilidade, CI, documentação, publicação e tag da V1 |
 | M7 | Após estudo de Nest/Docker/testes, executar a migração da seção 9 e concluir V2 |
@@ -287,9 +287,9 @@ Repositório próprio para o produto, separado de `estudos-nextjs`; a implementa
 
 Depois de existir o repositório, manter o documento em `docs/escopo.md`, linkado no README, e um registro curto das decisões relevantes (autenticação, checkout e migração). Criar tarefas conforme os marcos sem transformar o planejamento numa lista excessiva de tickets.
 
-Apresentação proposta: “Sobe o Som: loja demonstrativa de discos de vinil com Next.js, Tailwind, Prisma e PostgreSQL; catálogo por gênero, busca por álbum/artista, login por e-mail/senha e login social com NextAuth (Google e Facebook), além de pedidos calculados no servidor; evolução posterior para API Nest.js com Docker e testes de integração.” Documentar claramente que não há pagamento ou operação comercial real.
+Apresentação proposta: “Sobe o Som: loja demonstrativa de discos de vinil com Next.js, Tailwind, Prisma e PostgreSQL; catálogo por gênero, busca por álbum/artista, login por e-mail/senha e login social com NextAuth (Google), além de pedidos calculados no servidor; evolução posterior para API Nest.js com Docker e testes de integração.” Documentar claramente que não há pagamento ou operação comercial real.
 
-Na execução deste planejamento foram consultados, em modo de leitura, `6_nextgram/package.json`, `6_nextgram/prisma/schema.prisma` e `6_nextgram/auth.ts` no repositório de estudos. A configuração de autenticação consultada usa Google com Auth.js e sessão JWT; Facebook e e-mail/senha são requisitos desta loja, sem atribuí-los à configuração atual do NextGram. A loja não herdará automaticamente versões ou modelo de dados. Nenhum repositório foi criado ou alterado nesta etapa.
+Na execução deste planejamento foram consultados, em modo de leitura, `6_nextgram/package.json`, `6_nextgram/prisma/schema.prisma` e `6_nextgram/auth.ts` no repositório de estudos. A configuração de autenticação consultada usa Google com Auth.js e sessão JWT; o login por e-mail/senha é requisito desta loja, sem atribuí-lo à configuração atual do NextGram. A loja não herdará automaticamente versões ou modelo de dados.
 
 ## 14. Decisões confirmadas e abertas
 
@@ -302,9 +302,9 @@ Na execução deste planejamento foram consultados, em modo de leitura, `6_nextg
 | Footer | Confirmadas opções Sobre, Contato, Trocas e devoluções, respectivas políticas e Formas de pagamento; páginas completas podem vir depois | Estrutura na V1 |
 | Estilo, cores e fontes | Header e catálogo brancos, footer preto puro; proposta de apoio: vinho, laranja queimado, amarelo, Bricolage Grotesque e DM Sans | Avaliar refinamentos da seção 17 antes das telas |
 | Biblioteca de estilos | Confirmado: Tailwind do início ao fim, V1 e V2 | Fechado em 03/11/2026 |
-| Métodos de autenticação | Confirmado: e-mail/senha, Google e Facebook desde V1 | Fechado em 03/11/2026 |
+| Métodos de autenticação | Confirmado: e-mail/senha e Google desde V1; Google é o único provedor social | Revisado em 11/11/2026 |
 | Biblioteca de autenticação | Confirmado: NextAuth (Auth.js / `next-auth`) para login social | Fechado em 03/11/2026 |
-| Estratégia de sessão e integração de credenciais | Configurar NextAuth com os três métodos, Prisma e futura integração com Nest | M1, antes de fechar schema de autenticação |
+| Estratégia de sessão e integração de credenciais | NextAuth configurado com Google, Prisma e sessão JWT de sete dias; integrar e-mail/senha e preparar futura migração para Nest | Google e sessão fechados em M1; credenciais em M4 |
 | Catálogo inicial | Proposta: 24 LPs novos, 6 gêneros, sem variantes | Antes do seed e das telas |
 | Versões e dependências | Releases estáveis e compatíveis, verificadas no início | M1 |
 | Provedores de hospedagem e banco | Next com runtime servidor e PostgreSQL persistente | Antes da publicação da V1 |
@@ -323,7 +323,6 @@ As escolhas de escopo e arquitetura são recomendações para este projeto. As r
 - Referência do curso, schema: https://github.com/juniormps/estudos-nextjs/blob/main/6_nextgram/prisma/schema.prisma
 - Referência do curso, autenticação atual: https://github.com/juniormps/estudos-nextjs/blob/main/6_nextgram/auth.ts
 - Auth.js — Google: https://authjs.dev/getting-started/providers/google
-- Auth.js — Facebook: https://authjs.dev/getting-started/providers/facebook
 - Google — OpenID Connect e identidade estável: https://developers.google.com/identity/openid-connect/openid-connect
 
 ## 16. Histórico de revisões
@@ -337,6 +336,7 @@ As escolhas de escopo e arquitetura são recomendações para este projeto. As r
 | 0.5 | 03/11/2026 | Referência Redley; vitrine branca; gêneros e Sale no header abaixo da busca; frase da marca preservada; footer com opções institucionais e páginas completas adiáveis; Sale simples com preços de catálogo |
 | 0.6 | 03/11/2026 | Header alterado para branco puro como o catálogo; faixa superior da frase preservada; footer escuro com textos claros |
 | 0.7 | 03/11/2026 | Fundo do footer definido como preto puro `#000000` |
+| 0.8 | 11/11/2026 | Facebook retirado da V1 e da V2 para simplificar a integração e a publicação; Google mantido como único provedor social e e-mail/senha preservado no escopo |
 
 ## 17. Identidade visual e composição da página inicial
 
@@ -424,7 +424,7 @@ Uma pequena faixa gráfica entre banner e catálogo pode reforçar a marca, sem 
 - As páginas completas podem ser construídas depois. Até lá, usar estado “Em breve” ou informação breve acessível, sem links quebrados ou falsas políticas prontas.
 - Formas de pagamento deve informar que a compra é simulada, sem cobrança; não anunciar aceitação real de bandeiras, Pix ou parcelamento sem integração correspondente.
 - Não inventar telefone, e-mail de atendimento, CNPJ, endereço comercial ou perfis sociais. Definir contatos antes de publicar informações de atendimento.
-- A postergação das páginas institucionais não elimina conteúdos que se tornem necessários para disponibilizar Google/Facebook; esse requisito permanece ligado à publicação da autenticação.
+- A postergação das páginas institucionais não elimina conteúdos que se tornem necessários para disponibilizar o Google; esse requisito permanece ligado à publicação da autenticação.
 
 ### Implementação e avaliação
 
