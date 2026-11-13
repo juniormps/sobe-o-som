@@ -3,6 +3,8 @@ import type { GoogleProfile } from "next-auth/providers/google";
 
 const allowedReturnPaths = new Set(["/", "/login"]);
 const defaultReturnPath = "/login";
+const unknownAuthErrorMessage =
+    "Não foi possível autenticar sua conta. Tente novamente em instantes.";
 
 const authErrorMessages: Record<string, string> = {
     AccessDenied:
@@ -10,7 +12,7 @@ const authErrorMessages: Record<string, string> = {
     OAuthAccountNotLinked:
         "Já existe uma conta com este e-mail, mas ela não está vinculada a esta identidade Google.",
     OAuthCallback:
-        "O login foi cancelado ou não foi autorizado pelo Google. Você pode tentar novamente.",
+        "O login não foi concluído. Você pode tentar entrar novamente.",
     OAuthSignin:
         "Não foi possível iniciar o login com o Google. Tente novamente em instantes.",
     OAuthCreateAccount:
@@ -131,15 +133,14 @@ export function getSafeRedirectUrl(value: string, baseUrl: string) {
     }
 }
 
-export function getAuthErrorMessage(value: unknown) {
+export function getAuthErrorMessage(value?: unknown): string | null {
     if (typeof value !== "string") {
         return null;
     }
 
-    return (
-        authErrorMessages[value] ??
-        "Não foi possível autenticar sua conta. Tente novamente em instantes."
-    );
+    return Object.hasOwn(authErrorMessages, value)
+        ? authErrorMessages[value]
+        : unknownAuthErrorMessage;
 }
 
 export function toPublicSession(

@@ -84,10 +84,32 @@ assert.deepEqual(Object.keys(publicSession.user).sort(), [
     "name",
 ]);
 assert.equal(JSON.stringify(publicSession).includes("nao-deve-sair"), false);
+
+const unknownAuthErrorMessage =
+    "Não foi possível autenticar sua conta. Tente novamente em instantes.";
+
 assert.match(getAuthErrorMessage("AccessDenied") ?? "", /acesso foi recusado/i);
-assert.doesNotMatch(
-    getAuthErrorMessage("mensagem-controlada-pelo-cliente") ?? "",
-    /mensagem-controlada-pelo-cliente/,
+assert.equal(
+    getAuthErrorMessage("OAuthCallback"),
+    "O login não foi concluído. Você pode tentar entrar novamente.",
 );
+assert.equal(
+    getAuthErrorMessage("mensagem-controlada-pelo-cliente"),
+    unknownAuthErrorMessage,
+);
+
+for (const inheritedProperty of [
+    "constructor",
+    "toString",
+    "__proto__",
+    "hasOwnProperty",
+]) {
+    assert.equal(
+        getAuthErrorMessage(inheritedProperty),
+        unknownAuthErrorMessage,
+    );
+}
+
+assert.equal(getAuthErrorMessage(), null);
 
 console.log("Regras de autenticacao verificadas com sucesso.");
