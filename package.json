@@ -12,6 +12,7 @@
         "format:check": "prettier --check \"src/**/*.{css,js,jsx,ts,tsx}\" \"prisma/**/*.{js,ts}\" \"scripts/**/*.ts\" \"README.md\" \"*.{cjs,js,json,jsonc,mjs,ts}\" \".vscode/*.{json,jsonc}\"",
         "lint": "eslint .",
         "typecheck": "next typegen && tsc --noEmit",
+        "auth:verify": "tsx scripts/verify-auth-rules.ts",
         "prisma:format": "prisma format",
         "prisma:generate": "prisma generate",
         "prisma:validate": "prisma validate",

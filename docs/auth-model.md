@@ -29,18 +29,23 @@ além das declarações de tipos distribuídas nesses pacotes e da
 
 ## Estado da implementação
 
-Esta etapa implementa e valida as dependências, os modelos `User` e `Account`, a
-migração aditiva, o adaptador Prisma e a configuração server-only com estratégia
-JWT. `session.maxAge` e `jwt.maxAge` estão definidos em sete dias. Não há rota de
-autenticação, tela ou fluxo de login exposto, por isso a geração do Prisma Client e
-o build não importam essa configuração nem exigem credenciais OAuth ou segredos
-fictícios no código.
+Esta etapa implementa a rota do NextAuth 4 para App Router, o login e logout com
+Google e a página `/login`. O adaptador Prisma usa os modelos `User` e `Account`, e
+a estratégia JWT mantém `session.maxAge` e `jwt.maxAge` em sete dias. O e-mail do
+perfil Google é normalizado antes do adaptador, e perfis sem e-mail utilizável ou
+sem `email_verified: true` são recusados antes da criação de usuário ou vínculo.
 
-Continuam pendentes a normalização efetiva do e-mail em cada entrada, o cadastro e
-login com senha, as rotas e callbacks de integração OAuth, o tratamento dos
-conflitos de e-mail e identidade e os testes reais de login com Google e
-credenciais. As seções seguintes registram a política esperada, não afirmam que
-esses fluxos já foram implementados.
+Prisma Client, adaptador e opções do NextAuth são inicializados durante a
+requisição. `prisma generate`, `postinstall` e o build continuam sem conexão com o
+banco e sem exigir segredos reais; a aplicação, ao atender autenticação, rejeita
+variáveis ausentes e o placeholder de `NEXTAUTH_SECRET`, sem usar credenciais
+fictícias como fallback. Cadastro e login com senha, vinculação explícita de
+métodos e recuperação de senha continuam pendentes.
+
+O Route Handler usa o runtime Node.js padrão do App Router, necessário para Prisma
+e NextAuth. Com `cacheComponents` habilitado no Next.js 16, o runtime padrão não é
+redeclarado no segmento porque essa opção rejeita configurações locais de runtime;
+nenhuma parte da autenticação é executada no Edge Runtime.
 
 ## Usuário, credencial e conta social
 
@@ -57,8 +62,8 @@ ser criado.
 `passwordHash` é opcional. O cadastro com e-mail e senha será implementado pela
 aplicação, fora do adaptador: ele validará e normalizará os dados e armazenará
 somente um hash de senha adequado. Uma conta exclusivamente social mantém esse
-campo nulo. Esta etapa não implementa cadastro, validação de senha ou provider de
-credenciais.
+campo nulo. A implementação atual não inclui cadastro, validação de senha ou
+provider de credenciais.
 
 `Account` registra o vínculo entre um `User` e uma identidade OAuth. O par
 `provider`/`providerAccountId` é único e identifica retornos do Google sem usar o
@@ -69,7 +74,10 @@ remove seus vínculos em cascata se ele for excluído.
 O comportamento seguro permanece o padrão do NextAuth 4: igualdade de e-mail não
 autoriza vinculação automática entre contas. Se o e-mail normalizado já estiver
 associado a outro usuário, o login social deve ser rejeitado e orientar o uso do
-método original. Vinculação explícita de métodos fica fora desta etapa.
+método original. `allowDangerousEmailAccountLinking` não é habilitado. Uma nova
+entrada Google também é recusada quando já existe uma sessão autenticada, evitando
+que outra identidade seja vinculada silenciosamente. Vinculação explícita de
+métodos fica fora desta etapa.
 
 ## Sessão JWT
 
@@ -93,23 +101,44 @@ mecanismo adicional de versão/bloqueio ou sessões persistidas.
 
 ## Google
 
-Google é o único provedor social no escopo e já consta na configuração exclusiva
-do servidor. Nenhuma rota, tela, callback customizado ou fluxo de login é exposto
-nesta etapa. Cadastro e login com e-mail/senha continuam planejados, mas o provider
-de credenciais ainda não foi configurado.
+Google é o único provedor social no escopo. A rota
+`/api/auth/[...nextauth]`, o callback `/api/auth/callback/google`, a página
+`/login` e os estados de entrada, saída e erro estão implementados. O callback usa
+as verificações `state` e PKCE do provider oficial; não há OAuth manual.
 
-Para ativar o provedor ainda será necessário:
+O perfil válido usa `sub` como `providerAccountId`, preserva pontos e sufixos com
+`+` no e-mail e aplica somente `trim` e lowercase. O primeiro acesso pode criar
+`User` e `Account`; retornos posteriores procuram primeiro o vínculo estável. A
+sessão enviada à interface contém apenas expiração e `user.id`, `name`, `email` e
+`image`, sem hashes, tokens OAuth ou registros completos do banco. O logger da
+integração registra somente códigos de erro da biblioteca e descarta metadados que
+possam conter perfil, tokens ou segredos.
 
-1. Criar aplicativos separados para os ambientes aplicáveis nos consoles do
-   Google.
-2. Definir `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`,
-   `GOOGLE_CLIENT_SECRET` com valores reais e secretos no ambiente de execução.
-3. Cadastrar `/api/auth/callback/google` sob a origem de cada ambiente e revisar
-   domínios, telas de consentimento, permissões e requisitos de publicação.
-4. Implementar as rotas do NextAuth e o tratamento explícito de e-mail ausente,
-   normalização, conflito de conta, cancelamento e falhas de callback.
-5. Disponibilizar as páginas e informações externas exigidas pelo provedor,
-   incluindo privacidade e exclusão de dados quando aplicável, e validar os fluxos
-   com contas que não sejam apenas contas de desenvolvimento.
-6. Executar testes reais do login por Google, além dos testes do login por senha
-   quando ele for implementado.
+Em execução, as requisições de autenticação exigem `DATABASE_URL`, `NEXTAUTH_URL`,
+`NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. O callback de cada
+ambiente precisa estar cadastrado no Google. O ambiente local usa
+`http://localhost:3000/api/auth/callback/google`.
+
+## Verificações e pendências
+
+O script `npm run auth:verify` verifica normalização sem remover pontos ou `+`,
+recusa de e-mail ausente ou não verificado, fallback de destinos externos ou
+malformados e ausência de dados sensíveis na sessão pública. Lint, tipos, build e
+verificações HTTP locais complementam essa checagem.
+
+Em 12/11/2026, foram executados com sucesso `npm run auth:verify`,
+`npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run build` e
+`git diff --check`. Um segundo build passou com as variáveis de banco e
+autenticação vazias no processo, sem mover ou alterar o `.env`. Com o servidor de
+produção local, `/login`, `/api/auth/providers` e `/api/auth/session` responderam
+com status 200 sem autenticação; a lista de providers continha somente Google, e a
+sessão anônima não expôs dados.
+
+O primeiro login real com Google foi concluído em 12/11/2026, exibindo nome e
+e-mail. A sessão permaneceu ativa após F5 e ao abrir `/login` em outra aba. O
+cancelamento da autorização retornou a `/login?error=Callback` em estado
+desconectado. O Prisma Studio mostrou um `User` e um `Account` após esses testes.
+
+Não foram testados nesta revisão o botão de logout nem um novo login posterior com
+a mesma conta. Também continuam pendentes a configuração dos ambientes de
+publicação e os testes do futuro login por e-mail/senha.

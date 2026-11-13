@@ -1,6 +1,6 @@
 # Sobe o Som — escopo e plano de evolução
 
-Versão deste documento: 0.8 · Data: 11/11/2026 · Responsável pelo projeto: Márcio Junior.
+Versão deste documento: 0.9 · Data: 12/11/2026 · Responsável pelo projeto: Márcio Junior.
 
 Este documento registra o escopo a partir da conversa inicial e do planejamento de 03/11/2026. Foram confirmados pelo responsável: nome Sobe o Som, loja de discos de vinil, estilização com Tailwind do início ao fim, NextAuth para autenticação social, Google como único provedor social e os métodos e-mail/senha na V1, preservados na V2. Também estão confirmados: header com categorias abaixo da busca, incluindo Sale; carrossel imediatamente após o header completo; fundo branco ou quase branco no catálogo; frase “Discos para ouvir, capas para guardar”; e rodapé com opções institucionais e de atendimento. A seção 17 detalha a direção visual; cores de apoio e tipografia continuam como proposta.
 
@@ -108,7 +108,7 @@ As demais páginas institucionais do footer não são requisito de implementaç�
 - Cadastro por credenciais exige nome, e-mail válido, senha e confirmação iguais. Base proposta: senha entre 12 e 128 caracteres, sem corte silencioso. Cadastro social não exige criar senha local.
 - Normalizar e-mail com remoção de espaços externos e conversão para minúsculas; unicidade protegida no banco.
 - Senha recebe hash com algoritmo apropriado suportado pela biblioteca, como Argon2id ou scrypt; nunca armazenar texto puro nem criar algoritmo próprio. Contas exclusivamente sociais não têm senha local.
-- Biblioteca confirmada: NextAuth (Auth.js, pacote `next-auth`) para o login social com Google. O login por e-mail/senha permanece no escopo e será integrado à autenticação da aplicação. A configuração existente inclui Google, Prisma e sessão JWT de sete dias; o provider de credenciais e os fluxos de login ainda não foram implementados. A futura integração com Nest deve preservar essas decisões; não implementar OAuth manualmente. O NextGram usa Auth.js com Google e sessão JWT, servindo como referência funcional.
+- Biblioteca confirmada: NextAuth (Auth.js, pacote `next-auth`) para o login social com Google. A rota, a página mínima e os fluxos de login e logout com Google estão implementados. O primeiro login real, a persistência da sessão após F5 e em outra aba e o retorno desconectado após cancelamento foram validados; logout e um novo login posterior ainda não foram testados. O login por e-mail/senha permanece no escopo e será integrado à autenticação da aplicação, mas o provider de credenciais ainda não foi implementado. A configuração inclui Google, Prisma e sessão JWT de sete dias. A futura integração com Nest deve preservar essas decisões; não implementar OAuth manualmente. O NextGram usa Auth.js com Google e sessão JWT, servindo como referência funcional.
 - Sessão em cookie HttpOnly, Secure em produção, SameSite apropriado e validade explícita; duração definida em 7 dias. A forma de persistência e revogação seguirá a estratégia JWT do NextAuth, compatível com os dois métodos de entrada. A proposta anterior de token opaco com hash no banco não é uma exigência fechada. Logout invalida a sessão conforme o mecanismo adotado e limpa o cookie.
 - Google entra na V1 e continua disponível na V2 como único provedor social. O primeiro acesso social cria usuário e vínculo com o provedor quando ainda não existem. Retornos posteriores usam a identidade estável do provedor, não o e-mail como identificador OAuth.
 - O vínculo social tem unicidade por provedor e identificador da conta. Não juntar automaticamente contas apenas por igualdade de e-mail. Se o e-mail já pertencer a outra conta, informar o conflito e orientar o uso do método original; vinculação explícita de múltiplos métodos e definição posterior de senha ficam no backlog.
@@ -148,7 +148,7 @@ Migrações versionadas, índices para filtros e histórico, restrições de int
 | Renderização | Server Components para catálogo e páginas de dados; Client Components nas partes interativas |
 | Mutações | Server Actions nas operações da loja; autenticação usa os handlers/actions fornecidos pela biblioteca, sem duplicar os fluxos OAuth |
 | Dados | Prisma e PostgreSQL desde o início |
-| Autenticação | NextAuth (Auth.js / `next-auth`) configurado para Google com sessão JWT de sete dias; integrar também o login por e-mail/senha, ainda não implementado |
+| Autenticação | NextAuth (Auth.js / `next-auth`) com rota e interface mínima para Google e sessão JWT de sete dias; primeiro login, persistência e cancelamento validados; logout e novo login pendentes; login por e-mail/senha ainda não implementado |
 | Validação | Schemas de entrada no servidor, com Zod como opção inicial |
 | Carrinho | Context + reducer e persistência local; sem necessidade inicial de Redux |
 | Estilos | Tailwind CSS do início ao fim, em todas as telas e estados, preservado na V2; sem CSS Modules como estratégia paralela |
@@ -304,7 +304,7 @@ Na execução deste planejamento foram consultados, em modo de leitura, `6_nextg
 | Biblioteca de estilos | Confirmado: Tailwind do início ao fim, V1 e V2 | Fechado em 03/11/2026 |
 | Métodos de autenticação | Confirmado: e-mail/senha e Google desde V1; Google é o único provedor social | Revisado em 11/11/2026 |
 | Biblioteca de autenticação | Confirmado: NextAuth (Auth.js / `next-auth`) para login social | Fechado em 03/11/2026 |
-| Estratégia de sessão e integração de credenciais | NextAuth configurado com Google, Prisma e sessão JWT de sete dias; integrar e-mail/senha e preparar futura migração para Nest | Google e sessão fechados em M1; credenciais em M4 |
+| Estratégia de sessão e integração de credenciais | NextAuth implementado com Google, Prisma e sessão JWT de sete dias; primeiro login, persistência e cancelamento validados; integrar e-mail/senha e preparar futura migração para Nest | Logout e novo login Google pendentes; credenciais em M4 |
 | Catálogo inicial | Proposta: 24 LPs novos, 6 gêneros, sem variantes | Antes do seed e das telas |
 | Versões e dependências | Releases estáveis e compatíveis, verificadas no início | M1 |
 | Provedores de hospedagem e banco | Next com runtime servidor e PostgreSQL persistente | Antes da publicação da V1 |
@@ -337,6 +337,7 @@ As escolhas de escopo e arquitetura são recomendações para este projeto. As r
 | 0.6 | 03/11/2026 | Header alterado para branco puro como o catálogo; faixa superior da frase preservada; footer escuro com textos claros |
 | 0.7 | 03/11/2026 | Fundo do footer definido como preto puro `#000000` |
 | 0.8 | 11/11/2026 | Facebook retirado da V1 e da V2 para simplificar a integração e a publicação; Google mantido como único provedor social e e-mail/senha preservado no escopo |
+| 0.9 | 12/11/2026 | Rota e interface mínima do login Google implementadas; primeiro login, persistência da sessão e cancelamento validados no navegador; logout e novo login pendentes; e-mail/senha permanece planejado |
 
 ## 17. Identidade visual e composição da página inicial
 

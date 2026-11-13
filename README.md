@@ -16,13 +16,16 @@ Já implementado nesta etapa:
 - seed idempotente com seis gêneros e 24 discos fictícios;
 - base de autenticação com NextAuth 4, adaptador Prisma, modelos `User` e
   `Account` e sessão JWT de sete dias;
+- rota do NextAuth para App Router, login e logout com Google e página `/login`;
+- normalização do e-mail social, exigência de e-mail verificado e sessão pública
+  com o UUID interno do usuário;
 - comandos de lint, verificação de tipos e build de produção.
 
 Planejado, mas ainda não implementado:
 
 - telas de catálogo, busca, filtros e detalhes de discos;
 - carrinho e checkout demonstrativo;
-- cadastro, login, logout, rotas OAuth e histórico de pedidos;
+- cadastro e login com e-mail/senha e histórico de pedidos;
 - modelos de pedidos;
 - testes automatizados e Docker.
 
@@ -103,16 +106,19 @@ Categorias mantêm nomes e slugs únicos. Produtos podem compartilhar o título 
 `id` e `slug` únicos.
 
 Os modelos de autenticação e a estratégia de sessão estão detalhados em
-[docs/auth-model.md](docs/auth-model.md). Esta etapa prepara o adaptador e os
-dados do provedor Google, mas ainda não publica rotas nem implementa cadastro ou
-login. O cadastro e o login com e-mail/senha permanecem planejados, sem provider
-de credenciais configurado nesta etapa.
+[docs/auth-model.md](docs/auth-model.md). O fluxo social com Google está publicado
+pela rota `/api/auth/[...nextauth]` e pode ser exercitado em `/login`. O cadastro e
+o login com e-mail/senha permanecem planejados, sem provider de credenciais
+configurado nesta etapa.
 
 Variáveis exigidas por operação:
 
-- `prisma:generate`, `postinstall`, `prisma:validate` e `build`: nenhuma conexão;
+- `prisma:generate`, `postinstall`, `prisma:validate` e `build`: nenhuma conexão e
+  nenhuma variável de autenticação obrigatória;
 - aplicação, `prisma:seed`, `prisma:studio` e `prisma:migrate:status`:
   `DATABASE_URL` quando acessarem o banco;
+- requisições às rotas de autenticação: `DATABASE_URL`, `NEXTAUTH_URL`,
+  `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`;
 - `prisma:migrate`: `DATABASE_URL` e `SHADOW_DATABASE_URL`, obrigatoriamente para
   bancos distintos;
 - futuras migrações de produção: somente `DATABASE_URL`, sem banco shadow.
@@ -139,11 +145,33 @@ npm run prisma:studio
 ```
 
 `postinstall` e `build` geram o cliente para evitar artefatos desatualizados sem
-exigir conexão. Eles não executam migrações nem seed automaticamente. O seed usa
-upsert com UUIDs estáveis, pode ser reaplicado e não remove registros. As capas
-atuais reutilizam `public/images/album-placeholder.svg`; as artes são provisórias
-e serão trocadas por imagens próprias ou licenciadas quando a interface do
-catálogo for criada.
+exigir conexão. A configuração do Prisma e do NextAuth é inicializada somente
+durante as requisições que precisam dela, portanto o build também funciona sem
+segredos reais. Variáveis ausentes e o placeholder de `NEXTAUTH_SECRET` são
+rejeitados em execução, sem fallback para credenciais fictícias. Build e
+postinstall não executam migrações nem seed automaticamente. O seed usa upsert com
+UUIDs estáveis, pode ser reaplicado e não remove registros. As capas atuais
+reutilizam `public/images/album-placeholder.svg`; as artes são provisórias e serão
+trocadas por imagens próprias ou licenciadas quando a interface do catálogo for
+criada.
+
+## Autenticação com Google
+
+Inicie a aplicação e abra [http://localhost:3000/login](http://localhost:3000/login).
+O primeiro acesso com um perfil Google que forneça e-mail verificado cria `User` e
+`Account`; acessos seguintes reutilizam o vínculo pelo identificador estável do
+Google. Contas não são vinculadas automaticamente apenas porque compartilham o
+mesmo e-mail.
+
+O primeiro login real com Google foi validado no navegador, com nome e e-mail na
+interface e um `User` e um `Account` observados no Prisma Studio. A sessão foi
+preservada após recarregar a página e ao abrir `/login` em outra aba. O cancelamento
+da autorização retornou a `/login?error=Callback` em estado desconectado. Logout e
+um novo login posterior não foram testados nesta revisão.
+
+As verificações automatizadas cobrem normalização, rejeição de perfil inválido,
+destinos de retorno e conteúdo público da sessão, mas não substituem os cenários
+manuais ainda pendentes.
 
 ## Qualidade
 
@@ -159,6 +187,7 @@ npm run format:check
 Execute as demais verificações de qualidade:
 
 ```bash
+npm run auth:verify
 npm run lint
 npm run typecheck
 npm run build
