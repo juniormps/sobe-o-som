@@ -38,7 +38,7 @@
     <a href="#roadmap">Roadmap</a>
 </p>
 
-> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados e o login com Google já estão implementados. A interface comercial e o fluxo de compra serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
+> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido e o login com Google já estão implementados. A interface comercial e o fluxo de compra serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
 
 ---
 
@@ -94,10 +94,12 @@ Esses recursos serão implementados de forma incremental, conforme o [roadmap](#
 | ------------------------------- | ----------------------------------------------------------------------------------- |
 | Base da aplicação               | ✅ Next.js, App Router, TypeScript estrito e Tailwind configurados                  |
 | Persistência                    | ✅ Prisma, PostgreSQL, migrações e seed com 6 gêneros e 24 discos fictícios         |
+| Base de estoque                 | ✅ Saldo não negativo no PostgreSQL e seed sem reposição de estoques existentes     |
 | Autenticação social             | ✅ Login e logout com Google, página `/login` e sessão JWT                          |
 | Verificações de desenvolvimento | ✅ Formatação, lint, tipos, build e script de verificação de regras de autenticação |
 | Interface da loja               | ⏳ Catálogo, navegação, busca, filtros e detalhes planejados                        |
-| Fluxo de compra                 | ⏳ Carrinho, endereços, CEP, estoque, checkout simulado e pedidos planejados         |
+| Estados de disponibilidade      | ⏳ Interface de esgotado na M2 e regras visuais do carrinho na M3                   |
+| Fluxo de compra                 | ⏳ Carrinho, endereços, CEP, checkout simulado e pedidos planejados                 |
 | Login por e-mail e senha        | ⏳ Cadastro e provider de credenciais planejados                                    |
 | Testes da loja, CI e publicação | ⏳ Previstos para a primeira versão completa                                        |
 | API Nest.js e Docker            | 🔜 Evolução posterior à entrega da V1                                               |
@@ -118,7 +120,10 @@ A página inicial atual é uma base mínima em português do Brasil. A publicaç
 - Sessão JWT gerenciada pelo NextAuth, com identificação do usuário na interface.
 - Tratamento de cancelamento e falhas de autenticação.
 - Base de catálogo persistida, com categorias, produtos, preços e dados de promoção.
-- Seed reproduzível para preparar o ambiente de desenvolvimento.
+- Saldo inteiro não negativo por produto, com default zero e `CHECK` no PostgreSQL.
+- Seed reproduzível que define o estoque somente na criação e não repõe saldos existentes.
+
+A base persistente de estoque está pronta. Os estados visuais de disponibilidade e esgotado pertencem à M2/M3; a baixa condicional, a transação do pedido e os testes de concorrência pertencem à M5.2.
 
 ### 🛍️ Catálogo e descoberta — planejados
 
@@ -242,16 +247,16 @@ A migração será uma evolução do mesmo projeto; a primeira versão terá sua
 
 ### Modelos implementados
 
-| Modelo     | Responsabilidade                                                          |
-| ---------- | ------------------------------------------------------------------------- |
-| `Category` | Gênero musical, com nome e slug únicos                                    |
-| `Product`  | Álbum, artista, descrição, capa, preços, status e vínculo com a categoria |
-| `User`     | Identidade interna, e-mail único e dados do usuário                       |
-| `Account`  | Vínculo entre usuário e identidade OAuth do provedor                      |
+| Modelo     | Responsabilidade                                                     |
+| ---------- | -------------------------------------------------------------------- |
+| `Category` | Gênero musical, com nome e slug únicos                               |
+| `Product`  | Álbum, artista, descrição, capa, preços, estoque, status e categoria |
+| `User`     | Identidade interna, e-mail único e dados do usuário                  |
+| `Account`  | Vínculo entre usuário e identidade OAuth do provedor                 |
 
 Uma categoria possui vários produtos; um usuário pode possuir vínculos de autenticação. A combinação `provider` + `providerAccountId` é única.
 
-Os modelos `Address`, `Order` e `OrderItem`, o campo `Product.stock` e o registro versionado de ciência/aceite de privacidade são planejados, não implementados. Não há tabela `Session`, pois a estratégia atual utiliza JWT.
+Os modelos `Address`, `Order` e `OrderItem` e o registro versionado de ciência/aceite de privacidade são planejados, não implementados. Não há tabela `Session`, pois a estratégia atual utiliza JWT.
 
 ### Decisões de modelagem
 
@@ -261,7 +266,7 @@ Os modelos `Address`, `Order` e `OrderItem`, o campo `Product.stock` e o registr
 - **Migrações versionadas**, mantendo o histórico de evolução do banco.
 - **Seed idempotente**, com `upsert` e UUIDs estáveis, sem remoção de registros.
 
-Na evolução planejada, `Product.stock` será um inteiro não negativo, protegido também por `CHECK (stock >= 0)` no PostgreSQL. O seed aplicará estoques pequenos apenas ao criar novos produtos e fará uma inicialização única e controlada nos produtos já existentes, sem repor saldos consumidos nem apagar usuários ou pedidos quando for reexecutado.
+`Product.stock` é um inteiro não negativo com default zero, protegido também por `CHECK (stock >= 0)` no PostgreSQL. A migração inicializa uma única vez somente os UUIDs demonstrativos conhecidos; outros produtos preexistentes permanecem com zero. O seed aplica estoques pequenos apenas ao criar produtos e não repõe saldos consumidos nem apaga usuários, contas ou outros registros quando é reexecutado.
 
 O seed disponibiliza **6 gêneros e 24 discos fictícios**. As capas usam temporariamente [`album-placeholder.svg`](public/images/album-placeholder.svg) e serão substituídas por imagens próprias ou licenciadas.
 
@@ -348,12 +353,13 @@ O `postinstall` gera o Prisma Client sem abrir conexão com o banco e sem exigir
 
 ### 2. Configure os bancos e as variáveis
 
-Crie dois bancos PostgreSQL distintos, com acesso pelo usuário configurado no ambiente:
+Crie três bancos PostgreSQL distintos, com acesso pelo usuário configurado no ambiente:
 
 | Banco sugerido      | Uso                                   |
 | ------------------- | ------------------------------------- |
 | `sobe_o_som_dev`    | Dados da aplicação em desenvolvimento |
 | `sobe_o_som_shadow` | Banco auxiliar do Prisma Migrate      |
+| `sobe_o_som_test`   | Verificações isoladas com PostgreSQL  |
 
 Copie o arquivo de exemplo:
 
@@ -367,6 +373,7 @@ Preencha o `.env` com os valores do seu ambiente:
 | ---------------------- | -------------------------------------------------------- |
 | `DATABASE_URL`         | Conexão com o banco principal                            |
 | `SHADOW_DATABASE_URL`  | Conexão com o banco auxiliar de migrações                |
+| `TEST_DATABASE_URL`    | Conexão local exclusiva com `sobe_o_som_test`            |
 | `NEXTAUTH_URL`         | Origem da aplicação; localmente, `http://localhost:3000` |
 | `NEXTAUTH_SECRET`      | Segredo aleatório e exclusivo do ambiente                |
 | `GOOGLE_CLIENT_ID`     | Identificador do cliente OAuth do Google                 |
@@ -381,6 +388,8 @@ http://localhost:3000/api/auth/callback/google
 ```
 
 O banco shadow é usado exclusivamente por `migrate dev` para reaplicar o histórico e detectar divergências. Ele pode ser limpo pelo Prisma e não deve conter dados da aplicação. O script do projeto verifica as URLs e impede que banco principal e shadow apontem para o mesmo destino.
+
+`stock:verify` exige `TEST_DATABASE_URL`, aceita somente o banco local `sobe_o_som_test` e recusa os destinos principal e shadow. O comando não usa fallback para `DATABASE_URL`, aplica as migrações com `migrate deploy` e restringe as escritas e a limpeza aos dados controlados nesse banco.
 
 ### 3. Prepare o banco
 
@@ -423,6 +432,7 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 | Requisições de autenticação                                                              | `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` |
 | `prisma:migrate` em desenvolvimento                                                      | `DATABASE_URL` e `SHADOW_DATABASE_URL`, apontando para bancos distintos                        |
 | Migrações no futuro ambiente de produção                                                 | `DATABASE_URL`, sem banco shadow                                                               |
+| `stock:verify`                                                                           | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 
 </details>
 
@@ -436,6 +446,7 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 
 ```bash
 npm run auth:verify
+npm run stock:verify
 npm run format:check
 npm run lint
 npm run typecheck
@@ -443,6 +454,8 @@ npm run build
 ```
 
 O script `auth:verify` verifica regras de autenticação, incluindo normalização de e-mail, rejeição de perfis inválidos, destinos de retorno e conteúdo público da sessão. Ele complementa a validação manual do OAuth real com Google.
+
+`stock:verify` usa PostgreSQL real no banco isolado: confere o default, a restrição para negativos, os saldos de criação e a preservação de quantidades e identidades após reexecutar o seed. O seed não é um comando de reposição. A baixa transacional e os cenários concorrentes de pedidos permanecem para a M5.2.
 
 O código utiliza **quatro espaços de indentação**, sem tabulações. Para aplicar a formatação:
 
@@ -456,12 +469,12 @@ npm run format
 | ----------------- | ---------------------------------------------------------------------------- |
 | Regras de negócio | Valores em centavos, quantidades, produtos inativos e validação das entradas |
 | Componentes       | Interações do catálogo, carrinho, formulários e estados de interface         |
-| Integração        | Endereços, CEP controlado, estoque, transações, autorização e idempotência    |
-| End-to-end        | Catálogo, carrinho, autenticação, endereço, revisão, pedido e histórico       |
+| Integração        | Endereços, CEP controlado, estoque, transações, autorização e idempotência   |
+| End-to-end        | Catálogo, carrinho, autenticação, endereço, revisão, pedido e histórico      |
 
 Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda serão incorporados. O script de autenticação existente não representa a suíte completa de testes da loja.
 
-Os testes planejados cobrirão disputa concorrente pela última unidade, reversão integral de pedidos com vários itens, repetição da confirmação, preservação do estoque ao reexecutar o seed, isolamento dos endereços por usuário e imutabilidade do endereço histórico do pedido. Também cobrirão consulta de CEP com sucesso, entrada inválida, CEP não encontrado, falha, tempo limite, preenchimento manual e descarte de respostas atrasadas. Concorrência e transações usarão PostgreSQL real isolado, sem consumir o banco demonstrativo; a API externa será simulada ou controlada nos testes automatizados.
+Os testes planejados cobrirão disputa concorrente pela última unidade, reversão integral de pedidos com vários itens, repetição da confirmação, isolamento dos endereços por usuário e imutabilidade do endereço histórico do pedido. A preservação do estoque ao reexecutar o seed já é verificada em PostgreSQL real isolado. Também serão cobertas consultas de CEP com sucesso, entrada inválida, CEP não encontrado, falha, tempo limite, preenchimento manual e descarte de respostas atrasadas. Concorrência e transações usarão o banco de testes, sem consumir o banco demonstrativo; a API externa será simulada ou controlada nos testes automatizados.
 
 ---
 
@@ -479,10 +492,12 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 | `npm run lint`                  | Executa o ESLint                                         |
 | `npm run typecheck`             | Gera os tipos do Next.js e verifica o TypeScript         |
 | `npm run auth:verify`           | Verifica regras auxiliares de autenticação               |
+| `npm run stock:verify`          | Verifica estoque e seed no banco local isolado           |
 | `npm run prisma:format`         | Formata o schema Prisma                                  |
 | `npm run prisma:generate`       | Gera o Prisma Client                                     |
 | `npm run prisma:validate`       | Valida o schema Prisma                                   |
 | `npm run prisma:migrate`        | Valida as URLs e executa as migrações de desenvolvimento |
+| `npm run prisma:migrate:deploy` | Aplica migrações versionadas sem usar banco shadow       |
 | `npm run prisma:migrate:status` | Consulta o estado das migrações                          |
 | `npm run prisma:seed`           | Cria ou atualiza o catálogo demonstrativo                |
 | `npm run prisma:studio`         | Abre a interface de inspeção do banco                    |
@@ -500,7 +515,7 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 - [x] Modelar categorias e produtos e preparar o seed.
 - [x] Implementar a base de autenticação e o login com Google.
 - [x] Revisar documentalmente o escopo de endereços, CEP, estoque e privacidade.
-- [ ] Preparar a base de estoque antes da M2, com migração e seed sem reposição de saldo.
+- [x] Preparar a base de estoque antes da M2, com migração e seed sem reposição de saldo.
 - [ ] Construir a interface Mobile First, responsiva e acessível.
 - [ ] Implementar a M2 com catálogo, busca, gêneros, Sale, paginação, detalhes e estado esgotado.
 - [ ] Implementar a M3 com carrinho persistente atento à disponibilidade, sem reserva.

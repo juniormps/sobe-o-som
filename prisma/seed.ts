@@ -1,10 +1,12 @@
 import "dotenv/config";
 
+import { pathToFileURL } from "node:url";
+
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../src/generated/prisma/client";
 
-const categoryIds = {
+export const categoryIds = {
     mpbAndSamba: "00000000-0000-4000-8000-000000000001",
     rock: "00000000-0000-4000-8000-000000000002",
     jazzAndBlues: "00000000-0000-4000-8000-000000000003",
@@ -13,7 +15,7 @@ const categoryIds = {
     electronic: "00000000-0000-4000-8000-000000000006",
 } as const;
 
-const categories = [
+export const categories = [
     {
         id: categoryIds.mpbAndSamba,
         name: "MPB e Samba",
@@ -45,6 +47,33 @@ const categories = [
         slug: "eletronica",
     },
 ] as const;
+
+export const initialStockByProductId: Readonly<Record<string, number>> = {
+    "10000000-0000-4000-8000-000000000001": 0,
+    "10000000-0000-4000-8000-000000000002": 1,
+    "10000000-0000-4000-8000-000000000003": 2,
+    "10000000-0000-4000-8000-000000000004": 3,
+    "10000000-0000-4000-8000-000000000005": 4,
+    "10000000-0000-4000-8000-000000000006": 5,
+    "10000000-0000-4000-8000-000000000007": 6,
+    "10000000-0000-4000-8000-000000000008": 7,
+    "10000000-0000-4000-8000-000000000009": 8,
+    "10000000-0000-4000-8000-000000000010": 9,
+    "10000000-0000-4000-8000-000000000011": 10,
+    "10000000-0000-4000-8000-000000000012": 11,
+    "10000000-0000-4000-8000-000000000013": 12,
+    "10000000-0000-4000-8000-000000000014": 13,
+    "10000000-0000-4000-8000-000000000015": 14,
+    "10000000-0000-4000-8000-000000000016": 15,
+    "10000000-0000-4000-8000-000000000017": 2,
+    "10000000-0000-4000-8000-000000000018": 3,
+    "10000000-0000-4000-8000-000000000019": 4,
+    "10000000-0000-4000-8000-000000000020": 5,
+    "10000000-0000-4000-8000-000000000021": 6,
+    "10000000-0000-4000-8000-000000000022": 7,
+    "10000000-0000-4000-8000-000000000023": 8,
+    "10000000-0000-4000-8000-000000000024": 9,
+};
 
 const productSeeds = [
     {
@@ -337,26 +366,24 @@ const productSeeds = [
     },
 ] as const;
 
-const products = productSeeds.map(({ sequence, ...product }) => ({
-    id: `10000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`,
-    ...product,
-    coverPath: "/images/album-placeholder.svg",
-    isActive: true,
-}));
+export const products = productSeeds.map(({ sequence, ...product }) => {
+    const id = `10000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`;
+    const stock = initialStockByProductId[id];
 
-const databaseUrl = process.env.DATABASE_URL;
+    if (stock === undefined) {
+        throw new Error(`Estoque inicial nao definido para o produto ${id}.`);
+    }
 
-if (!databaseUrl) {
-    throw new Error("DATABASE_URL nao esta definida.");
-}
-
-const adapter = new PrismaPg({
-    connectionString: databaseUrl,
-    connectionTimeoutMillis: 5_000,
+    return {
+        id,
+        ...product,
+        stock,
+        coverPath: "/images/album-placeholder.svg",
+        isActive: true,
+    };
 });
-const prisma = new PrismaClient({ adapter });
 
-async function main() {
+export async function applySeed(prisma: PrismaClient) {
     for (const category of categories) {
         const { id, ...data } = category;
 
@@ -368,11 +395,11 @@ async function main() {
     }
 
     for (const product of products) {
-        const { id, ...data } = product;
+        const { id, stock, ...data } = product;
 
         await prisma.product.upsert({
             where: { id },
-            create: { id, ...data },
+            create: { id, stock, ...data },
             update: data,
         });
     }
@@ -382,8 +409,29 @@ async function main() {
     );
 }
 
-try {
-    await main();
-} finally {
-    await prisma.$disconnect();
+async function runSeedFromEnvironment() {
+    const databaseUrl = process.env.DATABASE_URL;
+
+    if (!databaseUrl) {
+        throw new Error("DATABASE_URL nao esta definida.");
+    }
+
+    const adapter = new PrismaPg({
+        connectionString: databaseUrl,
+        connectionTimeoutMillis: 5_000,
+    });
+    const prisma = new PrismaClient({ adapter });
+
+    try {
+        await applySeed(prisma);
+    } finally {
+        await prisma.$disconnect();
+    }
+}
+
+if (
+    process.argv[1] &&
+    import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+    await runSeedFromEnvironment();
 }

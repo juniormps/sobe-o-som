@@ -13,10 +13,12 @@
         "lint": "eslint .",
         "typecheck": "next typegen && tsc --noEmit",
         "auth:verify": "tsx scripts/verify-auth-rules.ts",
+        "stock:verify": "tsx scripts/verify-stock.ts",
         "prisma:format": "prisma format",
         "prisma:generate": "prisma generate",
         "prisma:validate": "prisma validate",
         "prisma:migrate": "tsx scripts/validate-prisma-migrate-env.ts && prisma migrate dev",
+        "prisma:migrate:deploy": "prisma migrate deploy",
         "prisma:migrate:status": "prisma migrate status",
         "prisma:seed": "prisma db seed",
         "prisma:studio": "prisma studio"

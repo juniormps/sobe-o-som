@@ -1,6 +1,6 @@
 # Sobe o Som — escopo e plano de evolução
 
-Versão deste documento: 0.10 · Data: 13/11/2026 · Responsável pelo projeto: Márcio Junior.
+Versão deste documento: 0.11 · Data: 14/11/2026 · Responsável pelo projeto: Márcio Junior.
 
 Este documento registra o escopo a partir da conversa inicial e do planejamento de 03/11/2026. Foram confirmados pelo responsável: nome Sobe o Som, loja de discos de vinil, estilização com Tailwind do início ao fim, NextAuth para autenticação social, Google como único provedor social e os métodos e-mail/senha na V1, preservados na V2. Também estão confirmados: header com categorias abaixo da busca, incluindo Sale; carrossel imediatamente após o header completo; fundo branco ou quase branco no catálogo; frase “Discos para ouvir, capas para guardar”; e rodapé com opções institucionais e de atendimento. A seção 17 detalha a direção visual; cores de apoio e tipografia continuam como proposta.
 
@@ -34,7 +34,7 @@ Imagens devem ser próprias ou ter uso permitido, com créditos quando exigidos.
 
 ## 3. Funcionalidades da V1
 
-Esta seção descreve o objetivo da V1. No estado implementado atual, endereços, consulta de CEP, estoque e pedidos ainda não estão disponíveis.
+Esta seção descreve o objetivo da V1. A base persistente de estoque está implementada; seus estados visuais permanecem para M2/M3, e a baixa transacional e a concorrência de pedidos permanecem para M5.2. Endereços, consulta de CEP e pedidos ainda não estão disponíveis.
 
 | ID | Funcionalidade | Escopo e critério de aceite |
 | --- | --- | --- |
@@ -162,7 +162,7 @@ As demais páginas institucionais do footer não são requisito de implementaç�
 | Account | Implementada | Usuário, provedor e identificador estável da conta, com unicidade do par; campos de credencial/token seguem a biblioteca e só são persistidos quando necessários |
 | Session | Não aplicável agora | A estratégia JWT implementada não usa tabela de sessão; reavaliar apenas se a estratégia mudar |
 | Category | Implementada | ID, nome do gênero e slug único; possui produtos |
-| Product | Implementada, com evolução na V1 | Campos atuais de catálogo, preço, Sale e ativo; receberá `stock Int @default(0)` |
+| Product | Implementada, com evolução na V1 | Campos de catálogo, preço, Sale, ativo e `stock Int @default(0)`; a interface e a baixa em pedidos serão acrescentadas nos marcos próprios |
 | Address | Planejada para a V1 | Usuário proprietário, destinatário, CEP textual de oito dígitos, logradouro, número ou “sem número”, complemento opcional, bairro quando aplicável, cidade, UF, indicação de principal e datas |
 | Order | Planejada para a V1 | ID, usuário, total em centavos, data, chave de confirmação, identificação do conteúdo da tentativa e cópia imutável do endereço confirmado; unicidade por usuário e chave |
 | OrderItem | Planejada para a V1 | Pedido, produto, título e artista históricos, preço unitário histórico e quantidade; subtotal derivado |
@@ -173,9 +173,11 @@ Não haverá tabela de carrinho, pagamento, frete, entrega, reserva ou movimenta
 
 Este modelo é conceitual: credenciais podem ficar em User ou Account conforme o adaptador de autenticação. Não forçar o schema do NextGram nem o desenho anterior de sessão contra os requisitos da biblioteca escolhida.
 
-Migrações versionadas, índices para filtros e histórico, restrições de integridade e seed reproduzível fazem parte da entrega. Além de `@default(0)`, o PostgreSQL terá `CHECK (stock >= 0)`; um índice não substitui essa restrição, e índices adicionais só serão criados mediante necessidade demonstrada.
+Migrações versionadas, índices para filtros e histórico, restrições de integridade e seed reproduzível fazem parte da entrega. Além de `@default(0)`, o PostgreSQL possui a constraint nomeada `CHECK (stock >= 0)`; nenhum índice adicional foi criado para o saldo sem necessidade demonstrada.
 
-Produtos existentes receberão uma inicialização controlada do saldo uma única vez. Depois disso, o seed aplicará o estoque inicial somente na criação de novos produtos: reexecutá-lo não poderá repor estoque consumido, sobrescrever o saldo dos existentes nem apagar usuários ou pedidos. Dados de desenvolvimento/teste ficam separados dos dados de demonstração publicados.
+A migração da M1.2 inicializa uma única vez e por UUID somente os produtos demonstrativos conhecidos; outros produtos existentes mantêm o default zero, e um banco vazio recebe os mesmos valores quando o seed cria o catálogo. Depois disso, o seed aplica o estoque inicial somente na criação: reexecutá-lo não repõe estoque consumido, não sobrescreve zero existente nem apaga usuários, contas ou outros registros.
+
+As verificações de estoque usam exclusivamente o banco local `sobe_o_som_test`, configurado por `TEST_DATABASE_URL`, e são executadas por `npm run stock:verify`. O comando recusa o banco principal e o shadow, aplica as migrações versionadas com `migrate deploy`, exercita o seed real e a constraint real e limpa somente fixtures controladas. A variável não é necessária para generate, validate, build ou para a aplicação fora dessa verificação.
 
 ## 7. Stack e arquitetura da V1
 
@@ -333,7 +335,7 @@ Também ficam fora: microserviços, filas, Redis, Kubernetes, Elasticsearch, Gra
 | M0 | Definir direção visual da Sobe o Som; criar repositório próprio e levar este escopo para `docs/escopo-projeto-ecommerce.md` |
 | M1 | Configurar projeto com Tailwind, PostgreSQL, Prisma, migrações e seed; configurar NextAuth, definir sessão e validar cedo a configuração do Google |
 | M1.1 | Concluir a revisão documental atual de endereços, CEP, estoque, privacidade e testes, sem iniciar a M2 |
-| M1.2 | Preparar a base de estoque antes da M2: campo, restrição, inicialização única e seed que não repõe saldo existente |
+| M1.2 | Concluída: base de estoque antes da M2 com campo, restrição, inicialização única, teste isolado e seed que não repõe saldo existente |
 | M2 | Header com categorias/Sale, carrossel, catálogo branco, busca por álbum/artista, filtro Sale, paginação, detalhe, estado esgotado e footer responsivos |
 | M3 | Carrinho, quantidades, persistência, estados vazios e indisponibilidade, sem reserva de estoque |
 | M4 | Cadastro, login por e-mail/senha e Google, sessão, logout, callbacks e proteção das operações |
@@ -414,6 +416,7 @@ As escolhas de escopo e arquitetura são recomendações para este projeto. As r
 | 0.8 | 11/11/2026 | Facebook retirado da V1 e da V2 para simplificar a integração e a publicação; Google mantido como único provedor social e e-mail/senha preservado no escopo |
 | 0.9 | 12/11/2026 | Rota e interface mínima do login Google implementadas; primeiro login, persistência da sessão e cancelamento validados no navegador; logout e novo login pendentes; e-mail/senha permanece planejado |
 | 0.10 | 13/11/2026 | Revisão aprovada inclui múltiplos endereços, ViaCEP e estoque simples na V1; baixa transacional, idempotência e testes de concorrência detalhados; aceite de privacidade versionado acrescentado à V2; logout e novo login Google confirmados no estado atual |
+| 0.11 | 14/11/2026 | Base de estoque implementada com restrição no PostgreSQL, inicialização única dos produtos demonstrativos, seed sem reposição de saldos e verificação isolada em banco local de testes |
 
 ## 17. Identidade visual e composição da página inicial
 
