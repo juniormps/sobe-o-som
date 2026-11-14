@@ -139,6 +139,9 @@ e-mail. A sessão permaneceu ativa após F5 e ao abrir `/login` em outra aba. O
 cancelamento da autorização retornou a `/login?error=Callback` em estado
 desconectado. O Prisma Studio mostrou um `User` e um `Account` após esses testes.
 
-Não foram testados nesta revisão o botão de logout nem um novo login posterior com
-a mesma conta. Também continuam pendentes a configuração dos ambientes de
-publicação e os testes do futuro login por e-mail/senha.
+Na revisão de 12/11/2026, o botão de logout e um novo login posterior com a mesma
+conta ainda não tinham sido testados. Em 13/11/2026, o responsável confirmou que o
+logout seguido de atualização manteve o usuário desconectado e que um novo login
+com a mesma conta manteve somente um `User` e um `Account`. Continuam pendentes a
+configuração dos ambientes de publicação e os testes do futuro login por
+e-mail/senha.

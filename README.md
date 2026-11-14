@@ -76,12 +76,13 @@ O projeto reúne desafios de uma aplicação de comércio eletrônico:
 - catálogo com busca, filtros, promoções e paginação;
 - persistência do carrinho no navegador;
 - validação de dados e cálculo de valores no servidor;
-- criação consistente de pedidos e autorização por usuário;
+- criação consistente de pedidos, baixa transacional de estoque e autorização por usuário;
+- múltiplos endereços por cliente e preenchimento assistido por CEP;
 - testes de comportamento, documentação e integração contínua.
 
 Esses recursos serão implementados de forma incremental, conforme o [roadmap](#roadmap).
 
-**Limites da demonstração:** a loja será apresentada em português do Brasil, com valores em reais. Os pedidos serão simulados, sem cobrança, entrega, integração de pagamento ou movimentação de estoque. O checkout não solicitará cartão, CPF ou endereço.
+**Limites da demonstração:** a loja será apresentada em português do Brasil, com valores em reais. A V1 incluirá múltiplos endereços por cliente, consulta de CEP e controle de estoque demonstrativo, com baixa transacional na confirmação do pedido. As compras serão simuladas, sem cobrança, integração de pagamento, cálculo de frete ou entrega real. O checkout solicitará endereço, mas não cartão ou CPF. Não haverá reserva de estoque nem cancelamento de pedidos na V1.
 
 ---
 
@@ -96,7 +97,7 @@ Esses recursos serão implementados de forma incremental, conforme o [roadmap](#
 | Autenticação social             | ✅ Login e logout com Google, página `/login` e sessão JWT                          |
 | Verificações de desenvolvimento | ✅ Formatação, lint, tipos, build e script de verificação de regras de autenticação |
 | Interface da loja               | ⏳ Catálogo, navegação, busca, filtros e detalhes planejados                        |
-| Fluxo de compra                 | ⏳ Carrinho, checkout simulado e pedidos planejados                                 |
+| Fluxo de compra                 | ⏳ Carrinho, endereços, CEP, estoque, checkout simulado e pedidos planejados         |
 | Login por e-mail e senha        | ⏳ Cadastro e provider de credenciais planejados                                    |
 | Testes da loja, CI e publicação | ⏳ Previstos para a primeira versão completa                                        |
 | API Nest.js e Docker            | 🔜 Evolução posterior à entrega da V1                                               |
@@ -126,6 +127,7 @@ A página inicial atual é uma base mínima em português do Brasil. A publicaç
 - Filtros por gênero e seleção **Sale**, combináveis com a busca.
 - Filtros preservados na URL e listagem paginada.
 - Página de produto com descrição, ano de lançamento, gênero e quantidade.
+- Produtos ativos esgotados ainda visíveis, identificados como **Esgotado** e sem novas adições.
 - Cabeçalho com busca e categorias, carrossel editorial e rodapé institucional.
 - Estados de carregamento, erro, catálogo vazio e produto não encontrado.
 
@@ -137,13 +139,17 @@ A página inicial atual é uma base mínima em português do Brasil. A publicaç
 - Exigir autenticação para concluir a compra simulada.
 - Revalidar produtos, disponibilidade e preços no servidor.
 - Informar mudanças de preço antes da confirmação.
+- Solicitar endereço brasileiro, selecionar o principal por padrão e permitir escolher ou cadastrar outro no checkout.
+- Preencher dados disponíveis por CEP via servidor, sem impedir preenchimento manual quando a consulta falhar.
+- Não reservar estoque; confirmar a disponibilidade somente ao registrar o pedido.
 - Prevenir pedidos duplicados por clique duplo ou repetição da mesma tentativa.
 
 ### 📦 Conta e pedidos — planejados
 
 - Cadastro e login com e-mail e senha, além do Google já disponível.
 - Armazenamento seguro do hash da senha.
-- Criação de pedido e itens em uma única transação.
+- Múltiplos endereços vinculados ao cliente, inicialmente cadastrados e selecionados dentro do checkout.
+- Criação do pedido, dos itens, da cópia do endereço confirmado e da baixa condicional de estoque em uma única transação.
 - Confirmação com identificador, data, itens e total.
 - Histórico paginado e detalhes acessíveis somente ao dono do pedido.
 - Preservação do título, artista e preço de cada item no momento da compra.
@@ -201,7 +207,7 @@ flowchart TD
     Prisma --> Database[(PostgreSQL)]
 ```
 
-Para os próximos módulos, a organização prevista separa apresentação, regras de negócio e acesso aos dados. Server Components serão usados nas páginas de dados; Client Components, nas interações. As operações da loja utilizarão Server Actions quando apropriado, mantendo validação e autorização no servidor.
+Para os próximos módulos, a organização prevista separa apresentação, regras de negócio e acesso aos dados. Server Components serão usados nas páginas de dados; Client Components, nas interações. As operações da loja utilizarão Server Actions quando apropriado, mantendo validação e autorização no servidor. A consulta planejada de CEP será a exceção HTTP explícita: `GET /api/cep/[cep]` consultará o ViaCEP pelo servidor e enviará ao provedor somente os oito dígitos necessários.
 
 ### Estrutura atual
 
@@ -224,7 +230,7 @@ O código utiliza o alias `@/*` para importações a partir de `src/`.
 
 ### Evolução para a V2
 
-Após a conclusão da V1, o backend será migrado para uma API **Nest.js**, preservando o frontend em Next.js e os dados do produto. Essa etapa acrescentará Docker, documentação HTTP e testes de integração mais abrangentes.
+Após a conclusão da V1, o backend será migrado para uma API **Nest.js**, preservando o frontend em Next.js e os dados do produto. A API assumirá também endereços, consulta de CEP e regras de estoque e pedidos. Essa etapa acrescentará Docker, documentação HTTP, testes de integração mais abrangentes e a apresentação e o registro versionado do aviso de privacidade.
 
 A migração será uma evolução do mesmo projeto; a primeira versão terá sua própria entrega funcional.
 
@@ -245,7 +251,7 @@ A migração será uma evolução do mesmo projeto; a primeira versão terá sua
 
 Uma categoria possui vários produtos; um usuário pode possuir vínculos de autenticação. A combinação `provider` + `providerAccountId` é única.
 
-Os modelos `Order` e `OrderItem` serão adicionados na etapa de pedidos. Não há tabela `Session`, pois a estratégia atual utiliza JWT.
+Os modelos `Address`, `Order` e `OrderItem`, o campo `Product.stock` e o registro versionado de ciência/aceite de privacidade são planejados, não implementados. Não há tabela `Session`, pois a estratégia atual utiliza JWT.
 
 ### Decisões de modelagem
 
@@ -254,6 +260,8 @@ Os modelos `Order` e `OrderItem` serão adicionados na etapa de pedidos. Não h�
 - **Sale derivada dos preços:** o preço de referência representa o valor anterior e deve ser maior que o preço atual. A promoção preserva o gênero do disco.
 - **Migrações versionadas**, mantendo o histórico de evolução do banco.
 - **Seed idempotente**, com `upsert` e UUIDs estáveis, sem remoção de registros.
+
+Na evolução planejada, `Product.stock` será um inteiro não negativo, protegido também por `CHECK (stock >= 0)` no PostgreSQL. O seed aplicará estoques pequenos apenas ao criar novos produtos e fará uma inicialização única e controlada nos produtos já existentes, sem repor saldos consumidos nem apagar usuários ou pedidos quando for reexecutado.
 
 O seed disponibiliza **6 gêneros e 24 discos fictícios**. As capas usam temporariamente [`album-placeholder.svg`](public/images/album-placeholder.svg) e serão substituídas por imagens próprias ou licenciadas.
 
@@ -280,9 +288,11 @@ O projeto utiliza Prisma **7.10.1**, gerador `prisma-client` com saída explíci
 
 `session.maxAge` e `jwt.maxAge` estão configurados para **sete dias**. O NextAuth pode renovar a validade durante o uso da sessão. O logout remove o cookie do navegador; a estratégia atual não mantém registros de sessão no banco para revogação individual em outros dispositivos.
 
+O fluxo real com Google já foi validado para primeiro acesso, persistência após atualização, cancelamento, logout seguido de atualização e novo login com a mesma conta. Este último manteve somente um `User` e um `Account`.
+
 ### Próximas etapas de segurança
 
-O cadastro com senha, seu hash, a limitação de tentativas e a autorização dos pedidos serão implementados nos respectivos módulos. O acesso ao pedido deverá ser validado no servidor a partir do usuário da sessão.
+O cadastro com senha, seu hash, a limitação de tentativas e a autorização de endereços e pedidos serão implementados nos respectivos módulos. Toda consulta ou alteração deverá obter o usuário da sessão no servidor, sem confiar em `userId` enviado pelo navegador.
 
 Detalhes da estratégia e das verificações estão em [`docs/auth-model.md`](docs/auth-model.md).
 
@@ -446,10 +456,12 @@ npm run format
 | ----------------- | ---------------------------------------------------------------------------- |
 | Regras de negócio | Valores em centavos, quantidades, produtos inativos e validação das entradas |
 | Componentes       | Interações do catálogo, carrinho, formulários e estados de interface         |
-| Integração        | Persistência dos pedidos, transações, autorização e prevenção de duplicação  |
-| End-to-end        | Catálogo, carrinho, autenticação, revisão, pedido e histórico                |
+| Integração        | Endereços, CEP controlado, estoque, transações, autorização e idempotência    |
+| End-to-end        | Catálogo, carrinho, autenticação, endereço, revisão, pedido e histórico       |
 
 Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda serão incorporados. O script de autenticação existente não representa a suíte completa de testes da loja.
+
+Os testes planejados cobrirão disputa concorrente pela última unidade, reversão integral de pedidos com vários itens, repetição da confirmação, preservação do estoque ao reexecutar o seed, isolamento dos endereços por usuário e imutabilidade do endereço histórico do pedido. Também cobrirão consulta de CEP com sucesso, entrada inválida, CEP não encontrado, falha, tempo limite, preenchimento manual e descarte de respostas atrasadas. Concorrência e transações usarão PostgreSQL real isolado, sem consumir o banco demonstrativo; a API externa será simulada ou controlada nos testes automatizados.
 
 ---
 
@@ -487,18 +499,23 @@ Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda s
 - [x] Integrar PostgreSQL e Prisma, com migrações versionadas.
 - [x] Modelar categorias e produtos e preparar o seed.
 - [x] Implementar a base de autenticação e o login com Google.
+- [x] Revisar documentalmente o escopo de endereços, CEP, estoque e privacidade.
+- [ ] Preparar a base de estoque antes da M2, com migração e seed sem reposição de saldo.
 - [ ] Construir a interface Mobile First, responsiva e acessível.
-- [ ] Implementar catálogo, busca, gêneros, Sale, paginação e detalhes.
-- [ ] Implementar carrinho com persistência local.
+- [ ] Implementar a M2 com catálogo, busca, gêneros, Sale, paginação, detalhes e estado esgotado.
+- [ ] Implementar a M3 com carrinho persistente atento à disponibilidade, sem reserva.
 - [ ] Adicionar cadastro e login com e-mail e senha.
-- [ ] Implementar checkout simulado, confirmação e histórico de pedidos.
+- [ ] Integrar múltiplos endereços e consulta de CEP na etapa de checkout.
+- [ ] Implementar pedidos com baixa transacional, idempotência e testes de concorrência.
+- [ ] Implementar confirmação e histórico de pedidos com cópias dos dados históricos.
 - [ ] Ampliar testes e configurar integração contínua.
 - [ ] Validar a experiência completa, publicar a demonstração e adicionar previews.
 
 ### V2 — API dedicada e ambiente com Docker
 
 - [ ] Migrar o backend para Nest.js, preservando o frontend e os dados.
-- [ ] Centralizar regras de negócio, autenticação e persistência na API.
+- [ ] Centralizar autenticação, endereços, CEP, estoque, pedidos e persistência na API.
+- [ ] Apresentar aviso de privacidade versionado e registrar a manifestação explícita do usuário.
 - [ ] Documentar o contrato HTTP com OpenAPI/Swagger.
 - [ ] Configurar Docker e Docker Compose para o ambiente local.
 - [ ] Ampliar testes de integração e repetir os fluxos end-to-end.
