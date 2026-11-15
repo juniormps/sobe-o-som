@@ -34,7 +34,10 @@ function getFirstValue(value: string | string[] | undefined) {
 
 function LoginFallback() {
     return (
-        <main className="flex min-h-screen items-center justify-center bg-stone-100 px-6">
+        <main
+            className="flex min-h-screen items-center justify-center bg-stone-100 px-6"
+            id="main-content"
+        >
             <p className="text-sm font-bold text-stone-600">
                 Preparando o acesso...
             </p>

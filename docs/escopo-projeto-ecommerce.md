@@ -1,6 +1,6 @@
 # Sobe o Som — escopo e plano de evolução
 
-Versão deste documento: 0.11 · Data: 14/11/2026 · Responsável pelo projeto: Márcio Junior.
+Versão deste documento: 0.12 · Data: 15/11/2026 · Responsável pelo projeto: Márcio Junior.
 
 Este documento registra o escopo a partir da conversa inicial e do planejamento de 03/11/2026. Foram confirmados pelo responsável: nome Sobe o Som, loja de discos de vinil, estilização com Tailwind do início ao fim, NextAuth para autenticação social, Google como único provedor social e os métodos e-mail/senha na V1, preservados na V2. Também estão confirmados: header com categorias abaixo da busca, incluindo Sale; carrossel imediatamente após o header completo; fundo branco ou quase branco no catálogo; frase “Discos para ouvir, capas para guardar”; e rodapé com opções institucionais e de atendimento. A seção 17 detalha a direção visual; cores de apoio e tipografia continuam como proposta.
 
@@ -34,14 +34,14 @@ Imagens devem ser próprias ou ter uso permitido, com créditos quando exigidos.
 
 ## 3. Funcionalidades da V1
 
-Esta seção descreve o objetivo da V1. A base persistente de estoque está implementada; seus estados visuais permanecem para M2/M3, e a baixa transacional e a concorrência de pedidos permanecem para M5.2. Endereços, consulta de CEP e pedidos ainda não estão disponíveis.
+Esta seção descreve o objetivo da V1. A base persistente de estoque e a vitrine da M2 estão implementadas. Carrinho, quantidades e ações de adicionar permanecem para a M3; a baixa transacional e a concorrência de pedidos permanecem para M5.2. Endereços, consulta de CEP e pedidos ainda não estão disponíveis.
 
 | ID | Funcionalidade | Escopo e critério de aceite |
 | --- | --- | --- |
 | RF01 | Vitrine e catálogo | Página inicial enxuta; exibir capa, título do álbum, artista/banda, preço e acesso ao produto |
 | RF02 | Busca e categoria | Buscar por título do álbum ou artista/banda, sem diferenciar maiúsculas/minúsculas; filtrar gênero ou seleção Sale pelo menu do header; preservar filtros na URL e combinar com a busca |
 | RF03 | Paginação | 12 produtos por página, ordenação estável por nome e ID; alterar busca/categoria reinicia na página 1; tratar parâmetros inválidos e resultados vazios |
-| RF04 | Detalhe do produto | Exibir capa, título, artista/banda, ano de lançamento, descrição, gênero, preço, disponibilidade e seletor de quantidade; produto inexistente, inativo ou esgotado apresenta estado adequado |
+| RF04 | Detalhe do produto | Exibir capa, título, artista/banda, ano de lançamento, descrição, gênero, preço e disponibilidade; produto inexistente, inativo ou esgotado apresenta estado adequado; seletor de quantidade e compra entram com o carrinho na M3 |
 | RF05 | Carrinho | Adicionar, remover, alterar quantidade e visualizar subtotal; consolidar o mesmo produto em uma linha; impedir novas adições esgotadas e permitir remover itens que se tornaram indisponíveis |
 | RF06 | Persistência do carrinho | Manter itens no mesmo navegador após recarregar, inclusive como visitante; preservar na entrada da conta; não sincronizar entre dispositivos |
 | RF07 | Cadastro | Nome, e-mail, senha e confirmação; validação no servidor, e-mail único normalizado e senha armazenada como hash |
@@ -68,7 +68,7 @@ Ao fazer logout, limpar o carrinho local para evitar que outra conta herde itens
 | Rota proposta | Acesso | Conteúdo |
 | --- | --- | --- |
 | `/` | Público | Header com busca e categorias em segunda linha, carrossel, catálogo branco com paginação e rodapé institucional |
-| `/produtos/[slug]` | Público | Detalhes e adição ao carrinho |
+| `/produtos/[slug]` | Público | Detalhes e disponibilidade; adição ao carrinho na M3 |
 | `/carrinho` | Público | Itens, quantidades e subtotal estimado |
 | `/cadastro` | Público | Criação de conta |
 | `/login` | Público | Entrada por e-mail/senha e botão “Continuar com Google” |
@@ -336,7 +336,7 @@ Também ficam fora: microserviços, filas, Redis, Kubernetes, Elasticsearch, Gra
 | M1 | Configurar projeto com Tailwind, PostgreSQL, Prisma, migrações e seed; configurar NextAuth, definir sessão e validar cedo a configuração do Google |
 | M1.1 | Concluir a revisão documental atual de endereços, CEP, estoque, privacidade e testes, sem iniciar a M2 |
 | M1.2 | Concluída: base de estoque antes da M2 com campo, restrição, inicialização única, teste isolado e seed que não repõe saldo existente |
-| M2 | Header com categorias/Sale, carrossel, catálogo branco, busca por álbum/artista, filtro Sale, paginação, detalhe, estado esgotado e footer responsivos |
+| M2 | Concluída: header com categorias/Sale, carrossel, catálogo branco, busca por álbum/artista, filtro Sale, paginação, detalhe, estado esgotado e footer responsivos |
 | M3 | Carrinho, quantidades, persistência, estados vazios e indisponibilidade, sem reserva de estoque |
 | M4 | Cadastro, login por e-mail/senha e Google, sessão, logout, callbacks e proteção das operações |
 | M5 | Implementar o checkout com endereço, revisão, criação atômica do pedido, confirmação e histórico |
@@ -417,6 +417,7 @@ As escolhas de escopo e arquitetura são recomendações para este projeto. As r
 | 0.9 | 12/11/2026 | Rota e interface mínima do login Google implementadas; primeiro login, persistência da sessão e cancelamento validados no navegador; logout e novo login pendentes; e-mail/senha permanece planejado |
 | 0.10 | 13/11/2026 | Revisão aprovada inclui múltiplos endereços, ViaCEP e estoque simples na V1; baixa transacional, idempotência e testes de concorrência detalhados; aceite de privacidade versionado acrescentado à V2; logout e novo login Google confirmados no estado atual |
 | 0.11 | 14/11/2026 | Base de estoque implementada com restrição no PostgreSQL, inicialização única dos produtos demonstrativos, seed sem reposição de saldos e verificação isolada em banco local de testes |
+| 0.12 | 15/11/2026 | M2 implementada com vitrine Mobile First, busca e filtros na URL, Sale, paginação, detalhes, disponibilidade, carrossel manual, footer, estados de interface e verificação isolada do catálogo; validações manuais confirmadas pelo responsável; compra permanece para a M3 |
 
 ## 17. Identidade visual e composição da página inicial
 
@@ -467,7 +468,7 @@ Uma pequena faixa gráfica entre banner e catálogo pode reforçar a marca, sem 
 
 ### Header, categorias e Sale
 
-- Manter o desenho da marca, busca arredondada, acesso à conta e carrinho da proposta anterior, com fundo branco puro no header inteiro, incluindo as categorias; preservar a faixa escura superior da frase.
+- Manter o desenho da marca, busca arredondada e acesso à conta, com fundo branco puro no header inteiro, incluindo as categorias; preservar a faixa escura superior da frase. O carrinho será acrescentado na M3 somente quando houver uma ação funcional.
 - Segunda linha: Todos os discos; MPB e Samba; Rock; Jazz e Blues; Soul e Funk; Pop; Eletrônica; Sale.
 - Destacar Sale com a cor de marca e indicar o item selecionado também por sublinhado/estado acessível, sem depender apenas da cor.
 - A seleção altera a listagem do catálogo e preserva a pesquisa. Na implementação completa, parâmetros ficam na URL; mudar a seleção reinicia a paginação.
@@ -488,7 +489,7 @@ Uma pequena faixa gráfica entre banner e catálogo pode reforçar a marca, sem 
 ### Cards e responsividade
 
 - Capas quadradas, sem distorção e sem cortar informação importante da arte.
-- Gênero, título do álbum, artista/banda, preço e ação de adicionar visíveis. Produto ativo sem saldo exibe “Esgotado” e não oferece adição.
+- Gênero, título do álbum, artista/banda, preço e ação funcional visíveis. Na M2, a ação é “Ver detalhes”; adicionar e quantidades entram na M3. Produto ativo sem saldo exibe “Esgotado” e não oferece adição.
 - Fundo branco puro na vitrine e nos cards, igual ao header; superfícies de apoio podem usar cinza muito claro quando necessário, com bordas leves e cantos discretamente arredondados.
 - Base proposta: quatro colunas no desktop, três no tablet quando houver espaço e duas no celular; uma coluna em larguras que não comportem duas com leitura confortável.
 - Espaçamento consistente, título com altura previsível e preço/ação alinhados. Capas coloridas não devem competir com excesso de elementos no entorno.
@@ -510,5 +511,7 @@ Uma pequena faixa gráfica entre banner e catálogo pode reforçar a marca, sem 
 ### Implementação e avaliação
 
 Toda a interface de produção continua sendo implementada com Tailwind, utilizando uma paleta e escalas consistentes. A revisão atual preserva NextAuth, a seleção simples Sale e a evolução para Nest.js; passa a incluir na V1 os estados de estoque, os endereços e a consulta de CEP descritos nas seções anteriores. Integrações de pagamento, frete, entrega, reserva, cancelamento e operações de troca continuam fora desta entrega.
+
+Na conclusão da M2, o responsável confirmou manualmente busca por álbum e artista, combinação de filtros, paginação, atualização e voltar/avançar, detalhes de produto disponível, esgotado e inexistente, home e detalhe em 320, 390, 768 e 1440 px, carrossel, teclado e header conectado/desconectado. Um aviso de hidratação com `data-dashlane-rid` desapareceu após desativar a extensão Dashlane; a causa era a injeção da extensão e não exigiu alteração nem supressão no código. Validações de marcos posteriores e a revisão completa da V1 permanecem pendentes.
 
 A proposta pode ser avaliada em uma composição demonstrativa da home antes da implementação. Álbuns, capas geométricas e preços usados nessa composição são ilustrativos e não estabelecem o catálogo definitivo.

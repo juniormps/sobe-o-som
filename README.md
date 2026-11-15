@@ -38,7 +38,7 @@
     <a href="#roadmap">Roadmap</a>
 </p>
 
-> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido e o login com Google já estão implementados. A interface comercial e o fluxo de compra serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
+> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido, o login com Google e a vitrine pública já estão implementados. Carrinho e fluxo de compra serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
 
 ---
 
@@ -90,21 +90,21 @@ Esses recursos serão implementados de forma incremental, conforme o [roadmap](#
 
 ## 📌 Estado atual
 
-| Área                            | Situação                                                                            |
-| ------------------------------- | ----------------------------------------------------------------------------------- |
-| Base da aplicação               | ✅ Next.js, App Router, TypeScript estrito e Tailwind configurados                  |
-| Persistência                    | ✅ Prisma, PostgreSQL, migrações e seed com 6 gêneros e 24 discos fictícios         |
-| Base de estoque                 | ✅ Saldo não negativo no PostgreSQL e seed sem reposição de estoques existentes     |
-| Autenticação social             | ✅ Login e logout com Google, página `/login` e sessão JWT                          |
-| Verificações de desenvolvimento | ✅ Formatação, lint, tipos, build e script de verificação de regras de autenticação |
-| Interface da loja               | ⏳ Catálogo, navegação, busca, filtros e detalhes planejados                        |
-| Estados de disponibilidade      | ⏳ Interface de esgotado na M2 e regras visuais do carrinho na M3                   |
-| Fluxo de compra                 | ⏳ Carrinho, endereços, CEP, checkout simulado e pedidos planejados                 |
-| Login por e-mail e senha        | ⏳ Cadastro e provider de credenciais planejados                                    |
-| Testes da loja, CI e publicação | ⏳ Previstos para a primeira versão completa                                        |
-| API Nest.js e Docker            | 🔜 Evolução posterior à entrega da V1                                               |
+| Área                            | Situação                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| Base da aplicação               | ✅ Next.js, App Router, TypeScript estrito e Tailwind configurados              |
+| Persistência                    | ✅ Prisma, PostgreSQL, migrações e seed com 6 gêneros e 24 discos fictícios     |
+| Base de estoque                 | ✅ Saldo não negativo no PostgreSQL e seed sem reposição de estoques existentes |
+| Autenticação social             | ✅ Login e logout com Google, página `/login` e sessão JWT                      |
+| Verificações de desenvolvimento | ✅ Catálogo, autenticação, estoque, formatação, lint, tipos e build             |
+| Interface da loja               | ✅ Home, navegação, busca, filtros, paginação, detalhes e estados responsivos   |
+| Estados de disponibilidade      | ✅ Disponível e esgotado na vitrine; regras do carrinho permanecem para a M3    |
+| Fluxo de compra                 | ⏳ Carrinho, endereços, CEP, checkout simulado e pedidos planejados             |
+| Login por e-mail e senha        | ⏳ Cadastro e provider de credenciais planejados                                |
+| Testes da loja, CI e publicação | ⏳ Previstos para a primeira versão completa                                    |
+| API Nest.js e Docker            | 🔜 Evolução posterior à entrega da V1                                           |
 
-A página inicial atual é uma base mínima em português do Brasil. A publicação da demonstração e os previews da interface fazem parte da entrega da V1.
+A página inicial é a vitrine Mobile First em português do Brasil. A publicação da demonstração, os previews e a validação visual final em navegadores reais fazem parte da entrega da V1.
 
 ---
 
@@ -122,16 +122,21 @@ A página inicial atual é uma base mínima em português do Brasil. A publicaç
 - Base de catálogo persistida, com categorias, produtos, preços e dados de promoção.
 - Saldo inteiro não negativo por produto, com default zero e `CHECK` no PostgreSQL.
 - Seed reproduzível que define o estoque somente na criação e não repõe saldos existentes.
+- Home com header, busca, categorias, Sale, carrossel manual, catálogo paginado e footer.
+- Busca por álbum ou artista, filtros combináveis e estado preservado na URL.
+- Cards e detalhes de discos com preço promocional válido e disponibilidade consultada no servidor.
+- Produtos ativos esgotados visíveis e produtos inativos ou inexistentes tratados como não encontrados.
+- Estados responsivos de carregamento, vazio, erro recuperável e página não encontrada.
 
-A base persistente de estoque está pronta. Os estados visuais de disponibilidade e esgotado pertencem à M2/M3; a baixa condicional, a transação do pedido e os testes de concorrência pertencem à M5.2.
+A vitrine apenas consulta o estoque persistido. Carrinho, seletor de quantidade e ações de adicionar pertencem à M3; a baixa condicional, a transação do pedido e os testes de concorrência pertencem à M5.2.
 
-### 🛍️ Catálogo e descoberta — planejados
+### 🛍️ Catálogo e descoberta — disponíveis
 
 - Vitrine com capas, títulos, artistas e preços.
 - Busca por álbum ou artista.
 - Filtros por gênero e seleção **Sale**, combináveis com a busca.
 - Filtros preservados na URL e listagem paginada.
-- Página de produto com descrição, ano de lançamento, gênero e quantidade.
+- Página de produto com descrição, ano de lançamento, gênero e disponibilidade.
 - Produtos ativos esgotados ainda visíveis, identificados como **Esgotado** e sem novas adições.
 - Cabeçalho com busca e categorias, carrossel editorial e rodapé institucional.
 - Estados de carregamento, erro, catálogo vazio e produto não encontrado.
@@ -216,22 +221,27 @@ Para os próximos módulos, a organização prevista separa apresentação, regr
 
 ### Estrutura atual
 
-| Caminho                 | Responsabilidade                                       |
-| ----------------------- | ------------------------------------------------------ |
-| `src/app/`              | Páginas, layout, estilos globais e rotas do App Router |
-| `src/app/login/`        | Página e interface de autenticação                     |
-| `src/app/api/auth/`     | Route Handler do NextAuth                              |
-| `src/lib/auth.ts`       | Configuração da autenticação                           |
-| `src/lib/auth-rules.ts` | Regras auxiliares de autenticação                      |
-| `src/lib/prisma.ts`     | Acesso ao Prisma no servidor                           |
-| `src/types/`            | Tipos complementares, incluindo a sessão               |
-| `prisma/`               | Schema, migrações e seed                               |
-| `prisma.config.ts`      | Configuração de URLs, migrações e seed                 |
-| `scripts/`              | Verificações de autenticação e do ambiente de migração |
-| `public/images/`        | Recursos visuais locais                                |
-| `docs/`                 | Escopo e documentação técnica                          |
+| Caminho                      | Responsabilidade                                           |
+| ---------------------------- | ---------------------------------------------------------- |
+| `src/app/`                   | Páginas, layout, estilos globais e rotas do App Router     |
+| `src/app/login/`             | Página e interface de autenticação                         |
+| `src/app/produtos/`          | Detalhes públicos dos discos                               |
+| `src/app/api/auth/`          | Route Handler do NextAuth                                  |
+| `src/components/storefront/` | Componentes compartilhados da vitrine                      |
+| `src/lib/auth.ts`            | Configuração da autenticação                               |
+| `src/lib/auth-rules.ts`      | Regras auxiliares de autenticação                          |
+| `src/lib/catalog-*.ts`       | Normalização, consultas e fronteira de dados do catálogo   |
+| `src/lib/prisma.ts`          | Acesso ao Prisma no servidor                               |
+| `src/types/`                 | Tipos complementares, incluindo a sessão                   |
+| `prisma/`                    | Schema, migrações e seed                                   |
+| `prisma.config.ts`           | Configuração de URLs, migrações e seed                     |
+| `scripts/`                   | Verificações de catálogo, estoque, autenticação e ambiente |
+| `public/images/`             | Recursos visuais locais                                    |
+| `docs/`                      | Escopo e documentação técnica                              |
 
-O código utiliza o alias `@/*` para importações a partir de `src/`.
+O código utiliza o alias `@/*` para importações a partir de `src/`. As páginas consultam módulos exclusivos do servidor diretamente, sem HTTP interno. `catalog-repository.ts` concentra os predicados Prisma e retornos explícitos; `catalog-data.ts` adiciona a fronteira de requisição do Next e preserva a inicialização tardia de `getPrisma()`.
+
+Busca, gênero, Sale e página usam `busca`, `genero`, `sale=true` e `pagina` na URL. Parâmetros repetidos ou inválidos são removidos; espaços da busca são normalizados e a entrada é limitada a 80 caracteres; páginas fora do intervalo são ajustadas depois da contagem e antes do cálculo do `offset`. A URL canônica resultante substitui a entrada inválida. Alterar busca ou filtros reinicia a página, enquanto a troca de gênero preserva busca e Sale. “Todos os discos” preserva a busca e limpa gênero e Sale.
 
 ### Evolução para a V2
 
@@ -307,9 +317,9 @@ Detalhes da estratégia e das verificações estão em [`docs/auth-model.md`](do
 
 ## 📱 Mobile First e acessibilidade
 
-**Mobile First e responsividade são requisitos de toda a interface.** As telas serão construídas primeiro para dispositivos móveis e adaptadas progressivamente para tablets, notebooks e desktops.
+**Mobile First e responsividade são requisitos de toda a interface.** A vitrine e o login partem de telas móveis e se adaptam progressivamente para tablets, notebooks e desktops.
 
-A implementação da interface comercial deverá contemplar:
+A interface comercial implementada contempla:
 
 - layouts flexíveis e leitura confortável em diferentes larguras;
 - busca, categorias e ações acessíveis em telas pequenas;
@@ -322,7 +332,7 @@ A implementação da interface comercial deverá contemplar:
 
 A identidade visual terá **cabeçalho e catálogo brancos**, faixa com o slogan da marca e **rodapé preto**, valorizando as capas dos discos.
 
-Esses itens orientam o desenvolvimento e a validação das próximas telas; a interface completa ainda está em construção.
+O carrossel é manual, sem autoplay, e renderiza somente o conteúdo do slide ativo. O responsável confirmou a revisão manual nas larguras de referência da M2; validações adicionais com tecnologias assistivas e a revisão completa da V1 permanecem necessárias antes da publicação.
 
 ---
 
@@ -433,6 +443,7 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 | `prisma:migrate` em desenvolvimento                                                      | `DATABASE_URL` e `SHADOW_DATABASE_URL`, apontando para bancos distintos                        |
 | Migrações no futuro ambiente de produção                                                 | `DATABASE_URL`, sem banco shadow                                                               |
 | `stock:verify`                                                                           | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
+| `catalog:verify`                                                                         | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 
 </details>
 
@@ -446,6 +457,7 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 
 ```bash
 npm run auth:verify
+npm run catalog:verify
 npm run stock:verify
 npm run format:check
 npm run lint
@@ -455,7 +467,23 @@ npm run build
 
 O script `auth:verify` verifica regras de autenticação, incluindo normalização de e-mail, rejeição de perfis inválidos, destinos de retorno e conteúdo público da sessão. Ele complementa a validação manual do OAuth real com Google.
 
+`catalog:verify` usa os módulos reais de consulta e o PostgreSQL local isolado `sobe_o_som_test`. Ele verifica busca por título e artista, filtros combinados, Sale com esgotado, paginação e ordenação, parâmetros inválidos, vazio, exclusão de inativos e detalhes inexistentes. O script aplica migrações e seed no banco de teste e cria apenas uma fixture inativa controlada, removida ao final.
+
 `stock:verify` usa PostgreSQL real no banco isolado: confere o default, a restrição para negativos, os saldos de criação e a preservação de quantidades e identidades após reexecutar o seed. O seed não é um comando de reposição. A baixa transacional e os cenários concorrentes de pedidos permanecem para a M5.2.
+
+### Validações manuais da M2
+
+O responsável pelo projeto confirmou no navegador:
+
+- busca por álbum e artista e combinação com gênero e Sale;
+- paginação, atualização da página e restauração do estado ao voltar ou avançar no navegador;
+- detalhes de produto disponível, esgotado e inexistente;
+- home e detalhe nas larguras de 320, 390, 768 e 1440 px;
+- carrossel, navegação por teclado e header conectado e desconectado.
+
+Durante essa validação, um aviso de hidratação indicava o atributo `data-dashlane-rid`. O aviso desapareceu após desativar a extensão Dashlane, confirmando a injeção pelo navegador; nenhuma alteração ou supressão de hidratação foi adicionada ao código.
+
+Essas verificações foram realizadas e confirmadas pelo responsável, não pelo agente de implementação. Cenários de carrinho, checkout, endereços, pedidos, tecnologias assistivas dedicadas e demais funcionalidades de marcos posteriores continuam pendentes.
 
 O código utiliza **quatro espaços de indentação**, sem tabulações. Para aplicar a formatação:
 
@@ -472,7 +500,7 @@ npm run format
 | Integração        | Endereços, CEP controlado, estoque, transações, autorização e idempotência   |
 | End-to-end        | Catálogo, carrinho, autenticação, endereço, revisão, pedido e histórico      |
 
-Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda serão incorporados. O script de autenticação existente não representa a suíte completa de testes da loja.
+Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda serão incorporados. As verificações atuais de autenticação, catálogo e estoque não representam a suíte completa de testes da loja.
 
 Os testes planejados cobrirão disputa concorrente pela última unidade, reversão integral de pedidos com vários itens, repetição da confirmação, isolamento dos endereços por usuário e imutabilidade do endereço histórico do pedido. A preservação do estoque ao reexecutar o seed já é verificada em PostgreSQL real isolado. Também serão cobertas consultas de CEP com sucesso, entrada inválida, CEP não encontrado, falha, tempo limite, preenchimento manual e descarte de respostas atrasadas. Concorrência e transações usarão o banco de testes, sem consumir o banco demonstrativo; a API externa será simulada ou controlada nos testes automatizados.
 
@@ -492,6 +520,7 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 | `npm run lint`                  | Executa o ESLint                                         |
 | `npm run typecheck`             | Gera os tipos do Next.js e verifica o TypeScript         |
 | `npm run auth:verify`           | Verifica regras auxiliares de autenticação               |
+| `npm run catalog:verify`        | Verifica consultas e normalização do catálogo isolado    |
 | `npm run stock:verify`          | Verifica estoque e seed no banco local isolado           |
 | `npm run prisma:format`         | Formata o schema Prisma                                  |
 | `npm run prisma:generate`       | Gera o Prisma Client                                     |
@@ -516,8 +545,8 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 - [x] Implementar a base de autenticação e o login com Google.
 - [x] Revisar documentalmente o escopo de endereços, CEP, estoque e privacidade.
 - [x] Preparar a base de estoque antes da M2, com migração e seed sem reposição de saldo.
-- [ ] Construir a interface Mobile First, responsiva e acessível.
-- [ ] Implementar a M2 com catálogo, busca, gêneros, Sale, paginação, detalhes e estado esgotado.
+- [x] Construir a interface Mobile First, responsiva e acessível da vitrine.
+- [x] Implementar a M2 com catálogo, busca, gêneros, Sale, paginação, detalhes e estado esgotado.
 - [ ] Implementar a M3 com carrinho persistente atento à disponibilidade, sem reserva.
 - [ ] Adicionar cadastro e login com e-mail e senha.
 - [ ] Integrar múltiplos endereços e consulta de CEP na etapa de checkout.

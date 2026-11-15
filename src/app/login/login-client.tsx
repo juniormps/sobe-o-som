@@ -54,7 +54,10 @@ function LoginPanel({ callbackUrl, initialError }: LoginClientProps) {
     }
 
     return (
-        <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-stone-100 px-5 py-12 text-stone-950 sm:px-8">
+        <main
+            className="relative flex min-h-screen items-center justify-center overflow-hidden bg-stone-100 px-5 py-12 text-stone-950 sm:px-8"
+            id="main-content"
+        >
             <div
                 aria-hidden="true"
                 className="absolute -top-28 -right-28 size-80 rounded-full border-[52px] border-stone-950 bg-orange-600 sm:size-96"
