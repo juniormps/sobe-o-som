@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AccountAccess } from "@/components/storefront/account-access";
+import { CartAccess } from "@/components/cart/cart-access";
 import {
     MAX_SEARCH_LENGTH,
     buildCatalogHref,
@@ -43,8 +44,9 @@ export function StorefrontHeader({
                             SOBE O SOM
                         </span>
                     </Link>
-                    <div className="justify-self-end lg:order-3">
+                    <div className="flex items-center gap-2 justify-self-end lg:order-3">
                         <AccountAccess />
+                        <CartAccess />
                     </div>
                     <form
                         action="/"

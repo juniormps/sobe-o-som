@@ -1,6 +1,6 @@
 # Sobe o Som — escopo e plano de evolução
 
-Versão deste documento: 0.12 · Data: 15/11/2026 · Responsável pelo projeto: Márcio Junior.
+Versão deste documento: 0.14 · Data: 15/11/2026 · Responsável pelo projeto: Márcio Junior.
 
 Este documento registra o escopo a partir da conversa inicial e do planejamento de 03/11/2026. Foram confirmados pelo responsável: nome Sobe o Som, loja de discos de vinil, estilização com Tailwind do início ao fim, NextAuth para autenticação social, Google como único provedor social e os métodos e-mail/senha na V1, preservados na V2. Também estão confirmados: header com categorias abaixo da busca, incluindo Sale; carrossel imediatamente após o header completo; fundo branco ou quase branco no catálogo; frase “Discos para ouvir, capas para guardar”; e rodapé com opções institucionais e de atendimento. A seção 17 detalha a direção visual; cores de apoio e tipografia continuam como proposta.
 
@@ -34,7 +34,7 @@ Imagens devem ser próprias ou ter uso permitido, com créditos quando exigidos.
 
 ## 3. Funcionalidades da V1
 
-Esta seção descreve o objetivo da V1. A base persistente de estoque e a vitrine da M2 estão implementadas. Carrinho, quantidades e ações de adicionar permanecem para a M3; a baixa transacional e a concorrência de pedidos permanecem para M5.2. Endereços, consulta de CEP e pedidos ainda não estão disponíveis.
+Esta seção descreve o objetivo da V1. A base persistente de estoque, a vitrine da M2 e o carrinho persistente da M3 estão implementados. A baixa transacional e a concorrência de pedidos permanecem para M5.2. Endereços, consulta de CEP, checkout e pedidos ainda não estão disponíveis.
 
 | ID | Funcionalidade | Escopo e critério de aceite |
 | --- | --- | --- |
@@ -70,6 +70,7 @@ Ao fazer logout, limpar o carrinho local para evitar que outra conta herde itens
 | `/` | Público | Header com busca e categorias em segunda linha, carrossel, catálogo branco com paginação e rodapé institucional |
 | `/produtos/[slug]` | Público | Detalhes e disponibilidade; adição ao carrinho na M3 |
 | `/carrinho` | Público | Itens, quantidades e subtotal estimado |
+| `/api/cart/resolve` | Público, somente leitura | Revalidar em lote produtos, preços, atividade e estoque do carrinho |
 | `/cadastro` | Público | Criação de conta |
 | `/login` | Público | Entrada por e-mail/senha e botão “Continuar com Google” |
 | `/checkout` | Autenticado | Cadastro/seleção e confirmação do endereço, revisão e confirmação da compra simulada |
@@ -196,13 +197,17 @@ As verificações de estoque usam exclusivamente o banco local `sobe_o_som_test`
 
 As versões exatas de Node, Next, React, Prisma e demais dependências serão verificadas por compatibilidade no início da implementação e fixadas no projeto. O código do NextGram é referência de aprendizado; não é o ponto de partida obrigatório nem define as versões desta loja.
 
+Na M3, o layout raiz permanece como Server Component e um componente cliente centraliza `SessionProvider` e o provider do carrinho. O formato local versionado contém somente identificador de produto, quantidade e UUID mínimo do proprietário; preços, estoque e autenticação não são confiados ao armazenamento. O login reivindica o carrinho visitante, enquanto logout ou troca de UUID limpa memória e chave local. Mudanças são sincronizadas entre abas e respostas assíncronas obsoletas são descartadas por identidade da requisição e assinatura dos itens. Uma corrida identificada na validação fazia uma aba ainda desconectada apagar o carrinho que outra aba acabara de atribuir no retorno do Google; a sincronização de carrinhos atribuídos agora aguarda a resolução local da sessão. O logout continua descartando intencionalmente itens e sincronizações pendentes.
+
+`POST /api/cart/resolve` valida no máximo 50 pares únicos de UUID e quantidade, consulta produtos ativos em um único `findMany` e retorna somente campos públicos necessários. Ausentes e inativos são indistinguíveis como indisponíveis; ativos com saldo zero são identificados como esgotados. A resposta não usa cache, não escreve no banco e preserva a inicialização tardia do Prisma.
+
 Organização simples: páginas/componentes → entrada da operação → serviço de negócio → acesso ao banco. Não adicionar camadas genéricas, microserviços ou interfaces para cada arquivo sem necessidade concreta.
 
 Consultas de Server Components chamam funções do servidor diretamente. Não criar uma chamada HTTP à própria aplicação apenas para consultar o banco. Prisma fica restrito à camada de dados no servidor, sem espalhar consultas pelo JSX.
 
 Operações de dados usadas pelas páginas ficam em poucos módulos com formatos de retorno explícitos, separados dos detalhes de Prisma. Na V2, esses módulos passarão a chamar a API Nest.js. Isso reduz mudanças, mas autenticação, cookies, erros e atualização da interface ainda exigirão adaptação.
 
-Route Handlers serão usados quando existir necessidade HTTP concreta, incluindo os endpoints da biblioteca de autenticação, os callbacks sociais e `GET /api/cep/[cep]`; não duplicar todas as mutações como Actions e endpoints na V1 apenas para antecipar a V2. CSS global fica limitado à entrada do Tailwind e a configurações de tema/base quando necessárias.
+Route Handlers serão usados quando existir necessidade HTTP concreta, incluindo os endpoints da biblioteca de autenticação, os callbacks sociais, a resolução pública do carrinho e `GET /api/cep/[cep]`; não duplicar todas as mutações como Actions e endpoints na V1 apenas para antecipar a V2. CSS global fica limitado à entrada do Tailwind e a configurações de tema/base quando necessárias.
 
 ### 7.1. Integração externa de CEP
 
@@ -337,7 +342,7 @@ Também ficam fora: microserviços, filas, Redis, Kubernetes, Elasticsearch, Gra
 | M1.1 | Concluir a revisão documental atual de endereços, CEP, estoque, privacidade e testes, sem iniciar a M2 |
 | M1.2 | Concluída: base de estoque antes da M2 com campo, restrição, inicialização única, teste isolado e seed que não repõe saldo existente |
 | M2 | Concluída: header com categorias/Sale, carrossel, catálogo branco, busca por álbum/artista, filtro Sale, paginação, detalhe, estado esgotado e footer responsivos |
-| M3 | Carrinho, quantidades, persistência, estados vazios e indisponibilidade, sem reserva de estoque |
+| M3 | Concluída: carrinho, quantidades, persistência, estados vazios e indisponibilidade, sem reserva de estoque |
 | M4 | Cadastro, login por e-mail/senha e Google, sessão, logout, callbacks e proteção das operações |
 | M5 | Implementar o checkout com endereço, revisão, criação atômica do pedido, confirmação e histórico |
 | M5.1 | Integrar múltiplos endereços e consulta de CEP no checkout, com autorização por proprietário e fallback manual |
@@ -418,6 +423,8 @@ As escolhas de escopo e arquitetura são recomendações para este projeto. As r
 | 0.10 | 13/11/2026 | Revisão aprovada inclui múltiplos endereços, ViaCEP e estoque simples na V1; baixa transacional, idempotência e testes de concorrência detalhados; aceite de privacidade versionado acrescentado à V2; logout e novo login Google confirmados no estado atual |
 | 0.11 | 14/11/2026 | Base de estoque implementada com restrição no PostgreSQL, inicialização única dos produtos demonstrativos, seed sem reposição de saldos e verificação isolada em banco local de testes |
 | 0.12 | 15/11/2026 | M2 implementada com vitrine Mobile First, busca e filtros na URL, Sale, paginação, detalhes, disponibilidade, carrossel manual, footer, estados de interface e verificação isolada do catálogo; validações manuais confirmadas pelo responsável; compra permanece para a M3 |
+| 0.13 | 15/11/2026 | M3 implementada com Context e reducer, persistência local versionada, ciclo de sessão e abas, resolução pública em lote, ações na vitrine, página de carrinho, conflitos de estoque e verificação automatizada; validação manual da interface permanece pendente |
+| 0.14 | 15/11/2026 | Revisão final da M3 registra validações manuais confirmadas pelo responsável, incluindo responsividade, teclado, F5, login Google, logout, troca de conta, indisponibilidade e duas abas; a corrida que apagava o carrinho visitante no login foi corrigida sem alterar a limpeza intencional no logout; checkout, endereços, CEP, pedidos e baixa transacional permanecem planejados |
 
 ## 17. Identidade visual e composição da página inicial
 
@@ -468,7 +475,7 @@ Uma pequena faixa gráfica entre banner e catálogo pode reforçar a marca, sem 
 
 ### Header, categorias e Sale
 
-- Manter o desenho da marca, busca arredondada e acesso à conta, com fundo branco puro no header inteiro, incluindo as categorias; preservar a faixa escura superior da frase. O carrinho será acrescentado na M3 somente quando houver uma ação funcional.
+- Manter o desenho da marca, busca arredondada e acessos à conta e ao carrinho, com fundo branco puro no header inteiro, incluindo as categorias; preservar a faixa escura superior da frase. O acesso funcional ao carrinho foi acrescentado na M3.
 - Segunda linha: Todos os discos; MPB e Samba; Rock; Jazz e Blues; Soul e Funk; Pop; Eletrônica; Sale.
 - Destacar Sale com a cor de marca e indicar o item selecionado também por sublinhado/estado acessível, sem depender apenas da cor.
 - A seleção altera a listagem do catálogo e preserva a pesquisa. Na implementação completa, parâmetros ficam na URL; mudar a seleção reinicia a paginação.
@@ -489,7 +496,7 @@ Uma pequena faixa gráfica entre banner e catálogo pode reforçar a marca, sem 
 ### Cards e responsividade
 
 - Capas quadradas, sem distorção e sem cortar informação importante da arte.
-- Gênero, título do álbum, artista/banda, preço e ação funcional visíveis. Na M2, a ação é “Ver detalhes”; adicionar e quantidades entram na M3. Produto ativo sem saldo exibe “Esgotado” e não oferece adição.
+- Gênero, título do álbum, artista/banda, preço e ação funcional visíveis. A M3 acrescenta adição nos cards e seletor no detalhe sem aninhar botão em link. Produto ativo sem saldo exibe “Esgotado” e não oferece adição.
 - Fundo branco puro na vitrine e nos cards, igual ao header; superfícies de apoio podem usar cinza muito claro quando necessário, com bordas leves e cantos discretamente arredondados.
 - Base proposta: quatro colunas no desktop, três no tablet quando houver espaço e duas no celular; uma coluna em larguras que não comportem duas com leitura confortável.
 - Espaçamento consistente, título com altura previsível e preço/ação alinhados. Capas coloridas não devem competir com excesso de elementos no entorno.
@@ -512,6 +519,8 @@ Uma pequena faixa gráfica entre banner e catálogo pode reforçar a marca, sem 
 
 Toda a interface de produção continua sendo implementada com Tailwind, utilizando uma paleta e escalas consistentes. A revisão atual preserva NextAuth, a seleção simples Sale e a evolução para Nest.js; passa a incluir na V1 os estados de estoque, os endereços e a consulta de CEP descritos nas seções anteriores. Integrações de pagamento, frete, entrega, reserva, cancelamento e operações de troca continuam fora desta entrega.
 
-Na conclusão da M2, o responsável confirmou manualmente busca por álbum e artista, combinação de filtros, paginação, atualização e voltar/avançar, detalhes de produto disponível, esgotado e inexistente, home e detalhe em 320, 390, 768 e 1440 px, carrossel, teclado e header conectado/desconectado. Um aviso de hidratação com `data-dashlane-rid` desapareceu após desativar a extensão Dashlane; a causa era a injeção da extensão e não exigiu alteração nem supressão no código. Validações de marcos posteriores e a revisão completa da V1 permanecem pendentes.
+Na conclusão da M2, o responsável confirmou manualmente busca por álbum e artista, combinação de filtros, paginação, atualização e voltar/avançar, detalhes de produto disponível, esgotado e inexistente, home e detalhe em 320, 390, 768 e 1440 px, carrossel, teclado e header conectado/desconectado. Um aviso de hidratação com `data-dashlane-rid` desapareceu após desativar a extensão Dashlane; a causa era a injeção da extensão e não exigiu alteração nem supressão no código.
+
+Na conclusão da M3, o responsável confirmou adições pelos cards e detalhe, quantidades, remoção, restauração após F5, estados vazio e indisponível, login Google com preservação do carrinho visitante, limpeza no logout, isolamento entre contas, sincronização entre abas e composição da home, detalhe e carrinho em 320, 390, 768 e 1440 px. O login e duas abas foram retestados depois da correção da corrida de sessão descrita na versão 0.14. Navegação por teclado e foco visível também foram conferidos; testes com tecnologias assistivas dedicadas não foram declarados como realizados. Checkout, endereços, CEP, pedidos, baixa transacional e a revisão completa da V1 permanecem pendentes.
 
 A proposta pode ser avaliada em uma composição demonstrativa da home antes da implementação. Álbuns, capas geométricas e preços usados nessa composição são ilustrativos e não estabelecem o catálogo definitivo.

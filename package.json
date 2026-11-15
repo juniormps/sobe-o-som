@@ -14,6 +14,7 @@
         "typecheck": "next typegen && tsc --noEmit",
         "auth:verify": "tsx scripts/verify-auth-rules.ts",
         "catalog:verify": "tsx --conditions=react-server scripts/verify-catalog.ts",
+        "cart:verify": "tsx scripts/verify-cart.ts",
         "stock:verify": "tsx scripts/verify-stock.ts",
         "prisma:format": "prisma format",
         "prisma:generate": "prisma generate",

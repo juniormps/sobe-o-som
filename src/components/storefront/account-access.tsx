@@ -1,26 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { SessionProvider, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 
 export function AccountAccess() {
-    return (
-        <SessionProvider>
-            <AccountStatus />
-        </SessionProvider>
-    );
-}
-
-function AccountStatus() {
     const { data: session, status } = useSession();
 
     if (status === "loading") {
         return (
             <span
                 aria-label="Verificando sessão"
-                className="flex min-h-11 min-w-20 items-center justify-center rounded-full border border-[#DED8CC] px-3 text-xs font-bold text-[#6B625E]"
+                className="flex size-11 items-center justify-center rounded-full border border-[#DED8CC] text-xs font-bold text-[#6B625E] sm:w-auto sm:min-w-20 sm:gap-2 sm:px-3"
             >
-                Conta…
+                <AccountIcon />
+                <span className="hidden sm:inline">Conta…</span>
             </span>
         );
     }
@@ -30,11 +23,12 @@ function AccountStatus() {
 
     return (
         <Link
-            className="flex min-h-11 max-w-36 items-center gap-2 rounded-full border border-[#241C19] px-3 text-sm font-bold text-[#241C19] transition-colors hover:bg-[#241C19] hover:text-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#B63E25]"
+            aria-label={label}
+            className="flex size-11 items-center justify-center rounded-full border border-[#241C19] text-sm font-bold text-[#241C19] transition-colors hover:bg-[#241C19] hover:text-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#B63E25] sm:w-auto sm:max-w-36 sm:gap-2 sm:px-3"
             href="/login"
         >
             <AccountIcon />
-            <span className="truncate">{label}</span>
+            <span className="hidden truncate sm:inline">{label}</span>
         </Link>
     );
 }

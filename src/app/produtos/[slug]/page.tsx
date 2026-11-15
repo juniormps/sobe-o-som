@@ -6,6 +6,7 @@ import { Suspense } from "react";
 
 import { StorefrontFooter } from "@/components/storefront/storefront-footer";
 import { StorefrontHeader } from "@/components/storefront/storefront-header";
+import { ProductPurchase } from "@/components/cart/product-purchase";
 import { getCatalogCategories, getProductBySlug } from "@/lib/catalog-data";
 import { formatPrice, getSafeCoverPath } from "@/lib/format";
 
@@ -134,17 +135,11 @@ async function ProductContent({ params }: ProductPageProps) {
                                     {product.description}
                                 </p>
                             </section>
-                            <div className="mt-8 rounded-sm bg-[#F4F0E9] p-5 text-sm leading-6 text-[#514844]">
-                                <p className="font-black text-[#241C19]">
-                                    Compra na próxima faixa
-                                </p>
-                                <p className="mt-1">
-                                    Carrinho, quantidade e ação de adicionar
-                                    serão integrados na M3. Nesta etapa, o
-                                    catálogo é somente para descoberta e
-                                    consulta.
-                                </p>
-                            </div>
+                            <ProductPurchase
+                                productId={product.id}
+                                productName={product.name}
+                                stock={product.stock}
+                            />
                         </div>
                     </div>
                 </div>

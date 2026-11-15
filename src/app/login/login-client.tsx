@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useState } from "react";
+
+import { useCart } from "@/components/cart/cart-provider";
 
 type LoginClientProps = {
     callbackUrl: "/" | "/login";
@@ -10,15 +12,12 @@ type LoginClientProps = {
 };
 
 export function LoginClient(props: LoginClientProps) {
-    return (
-        <SessionProvider>
-            <LoginPanel {...props} />
-        </SessionProvider>
-    );
+    return <LoginPanel {...props} />;
 }
 
 function LoginPanel({ callbackUrl, initialError }: LoginClientProps) {
     const { data: session, status } = useSession();
+    const { clearForLogout } = useCart();
     const [pendingAction, setPendingAction] = useState<"in" | "out" | null>(
         null,
     );
@@ -44,7 +43,12 @@ function LoginPanel({ callbackUrl, initialError }: LoginClientProps) {
         setActionError(null);
 
         try {
-            await signOut({ callbackUrl: "/login" });
+            const result = await signOut({
+                callbackUrl: "/login",
+                redirect: false,
+            });
+            clearForLogout();
+            window.location.assign(result.url);
         } catch {
             setActionError(
                 "Não foi possível sair agora. Atualize a página e tente novamente.",

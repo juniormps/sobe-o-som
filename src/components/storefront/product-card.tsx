@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import type { CatalogProduct } from "@/lib/catalog-data";
 import { formatPrice, getSafeCoverPath } from "@/lib/format";
 
@@ -11,10 +12,10 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
     const soldOut = product.stock === 0;
 
     return (
-        <article className="group h-full min-w-0 bg-white">
+        <article className="group flex h-full min-w-0 flex-col bg-white">
             <Link
                 aria-label={`Ver detalhes de ${product.name}, de ${product.artist}`}
-                className="flex h-full flex-col rounded-sm focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#B63E25]"
+                className="rounded-sm focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#B63E25]"
                 href={`/produtos/${product.slug}`}
             >
                 <div className="relative block aspect-square overflow-hidden rounded-sm border border-[#DED8CC] bg-[#F4F0E9]">
@@ -35,7 +36,12 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                         </span>
                     ) : null}
                 </div>
-                <div className="flex flex-1 flex-col pt-4">
+            </Link>
+            <div className="flex flex-1 flex-col pt-4">
+                <Link
+                    className="rounded-sm focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#B63E25]"
+                    href={`/produtos/${product.slug}`}
+                >
                     <p className="text-[0.68rem] font-black tracking-[0.14em] text-[#9F2F1A] uppercase">
                         {product.category.name}
                     </p>
@@ -45,25 +51,32 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                     <p className="mt-1 text-sm text-[#6B625E]">
                         {product.artist}
                     </p>
-                    <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-5">
-                        <div>
-                            {onSale ? (
-                                <p className="text-xs text-[#716864] line-through">
-                                    {formatPrice(
-                                        product.referencePriceInCents!,
-                                    )}
-                                </p>
-                            ) : null}
-                            <p className="text-lg font-black text-[#241C19]">
-                                {formatPrice(product.priceInCents)}
+                </Link>
+                <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-5">
+                    <div>
+                        {onSale ? (
+                            <p className="text-xs text-[#716864] line-through">
+                                {formatPrice(product.referencePriceInCents!)}
                             </p>
-                        </div>
-                        <span className="inline-flex min-h-11 items-center rounded-full border border-[#241C19] px-4 py-2 text-xs font-black text-[#241C19] transition-colors group-hover:bg-[#241C19] group-hover:text-white">
-                            Ver detalhes
-                        </span>
+                        ) : null}
+                        <p className="text-lg font-black text-[#241C19]">
+                            {formatPrice(product.priceInCents)}
+                        </p>
                     </div>
                 </div>
-            </Link>
+                {soldOut ? (
+                    <p className="mt-4 flex min-h-11 items-center justify-center rounded-full border border-[#9D948E] px-4 py-2 text-center text-xs font-black text-[#514844]">
+                        Indisponível para adicionar
+                    </p>
+                ) : (
+                    <AddToCartButton
+                        className="mt-4"
+                        productId={product.id}
+                        productName={product.name}
+                        stock={product.stock}
+                    />
+                )}
+            </div>
         </article>
     );
 }

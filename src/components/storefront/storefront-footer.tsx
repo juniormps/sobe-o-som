@@ -33,9 +33,9 @@ export function StorefrontFooter() {
                     entregas reais.
                 </p>
                 <p className="mt-2 text-[#9D948E]">
-                    Carrinho e ações de compra serão integrados na M3. O
-                    conteúdo completo de privacidade permanece pendente antes da
-                    publicação da V1.
+                    O carrinho não reserva estoque. Checkout, pedidos e o
+                    conteúdo completo de privacidade permanecem pendentes antes
+                    da publicação da V1.
                 </p>
             </div>
         </footer>

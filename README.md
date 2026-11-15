@@ -38,7 +38,7 @@
     <a href="#roadmap">Roadmap</a>
 </p>
 
-> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido, o login com Google e a vitrine pública já estão implementados. Carrinho e fluxo de compra serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
+> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido, o login com Google, a vitrine pública e o carrinho persistente já estão implementados. Checkout e pedidos serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
 
 ---
 
@@ -96,10 +96,11 @@ Esses recursos serão implementados de forma incremental, conforme o [roadmap](#
 | Persistência                    | ✅ Prisma, PostgreSQL, migrações e seed com 6 gêneros e 24 discos fictícios     |
 | Base de estoque                 | ✅ Saldo não negativo no PostgreSQL e seed sem reposição de estoques existentes |
 | Autenticação social             | ✅ Login e logout com Google, página `/login` e sessão JWT                      |
-| Verificações de desenvolvimento | ✅ Catálogo, autenticação, estoque, formatação, lint, tipos e build             |
+| Verificações de desenvolvimento | ✅ Carrinho, catálogo, autenticação, estoque, formatação, lint, tipos e build   |
 | Interface da loja               | ✅ Home, navegação, busca, filtros, paginação, detalhes e estados responsivos   |
-| Estados de disponibilidade      | ✅ Disponível e esgotado na vitrine; regras do carrinho permanecem para a M3    |
-| Fluxo de compra                 | ⏳ Carrinho, endereços, CEP, checkout simulado e pedidos planejados             |
+| Estados de disponibilidade      | ✅ Disponível, esgotado, conflito de saldo e produto indisponível no carrinho   |
+| Carrinho                        | ✅ Context + reducer, persistência local, revalidação em lote e sincronização   |
+| Fluxo de compra                 | ⏳ Endereços, CEP, checkout simulado e pedidos planejados                       |
 | Login por e-mail e senha        | ⏳ Cadastro e provider de credenciais planejados                                |
 | Testes da loja, CI e publicação | ⏳ Previstos para a primeira versão completa                                    |
 | API Nest.js e Docker            | 🔜 Evolução posterior à entrega da V1                                           |
@@ -127,8 +128,13 @@ A página inicial é a vitrine Mobile First em português do Brasil. A publicaç
 - Cards e detalhes de discos com preço promocional válido e disponibilidade consultada no servidor.
 - Produtos ativos esgotados visíveis e produtos inativos ou inexistentes tratados como não encontrados.
 - Estados responsivos de carregamento, vazio, erro recuperável e página não encontrada.
+- Carrinho público com uma linha por produto, quantidades de 1 a 99 e até 50 produtos distintos.
+- Persistência versionada no navegador, preservação no login e limpeza no logout ou troca de conta.
+- Sincronização do carrinho entre abas e indicador no header pela soma das unidades.
+- Revalidação em lote de preços, atividade e estoque por `POST /api/cart/resolve`, sem reserva ou escrita no banco.
+- Página `/carrinho` com subtotais em centavos, total estimado, edição, remoção, conflitos de estoque e falha recuperável.
 
-A vitrine apenas consulta o estoque persistido. Carrinho, seletor de quantidade e ações de adicionar pertencem à M3; a baixa condicional, a transação do pedido e os testes de concorrência pertencem à M5.2.
+A vitrine e o carrinho apenas consultam o estoque persistido. A baixa condicional, a transação do pedido e os testes de concorrência pertencem à M5.2.
 
 ### 🛍️ Catálogo e descoberta — disponíveis
 
@@ -141,13 +147,19 @@ A vitrine apenas consulta o estoque persistido. Carrinho, seletor de quantidade 
 - Cabeçalho com busca e categorias, carrossel editorial e rodapé institucional.
 - Estados de carregamento, erro, catálogo vazio e produto não encontrado.
 
-### 🛒 Carrinho e checkout — planejados
+### 🛒 Carrinho — disponível
 
 - Adicionar e remover discos, alterar quantidades e visualizar subtotal.
 - Persistir o carrinho no mesmo navegador, inclusive para visitantes.
 - Preservar os itens ao entrar na conta e limpar o carrinho ao sair.
-- Exigir autenticação para concluir a compra simulada.
 - Revalidar produtos, disponibilidade e preços no servidor.
+- Preservar itens em conflito quando o estoque diminuir, permitindo reduzir ou remover.
+- Tratar itens inativos ou inexistentes sem expor dados internos e sem apresentar total parcial como completo.
+- Continuar em memória quando o armazenamento falhar e permitir repetir consultas temporariamente indisponíveis.
+
+### 🧾 Checkout — planejado
+
+- Exigir autenticação para concluir a compra simulada.
 - Informar mudanças de preço antes da confirmação.
 - Solicitar endereço brasileiro, selecionar o principal por padrão e permitir escolher ou cadastrar outro no checkout.
 - Preencher dados disponíveis por CEP via servidor, sem impedir preenchimento manual quando a consulta falhar.
@@ -210,7 +222,10 @@ O diagrama representa a base de autenticação já implementada:
 
 ```mermaid
 flowchart TD
-    Browser["Navegador"] --> Pages["Páginas Next.js / React"]
+Browser["Navegador"] --> Pages["Páginas Next.js / React"]
+    Pages --> Cart["Context + reducer / localStorage"]
+    Cart --> CartResolve["POST /api/cart/resolve"]
+    CartResolve --> Prisma
     Pages --> Auth["NextAuth / Route Handler"]
     Auth <--> Google["Google OAuth"]
     Auth --> Prisma["Prisma Adapter / Prisma Client"]
@@ -226,7 +241,10 @@ Para os próximos módulos, a organização prevista separa apresentação, regr
 | `src/app/`                   | Páginas, layout, estilos globais e rotas do App Router     |
 | `src/app/login/`             | Página e interface de autenticação                         |
 | `src/app/produtos/`          | Detalhes públicos dos discos                               |
+| `src/app/carrinho/`          | Página pública do carrinho                                 |
+| `src/app/api/cart/resolve/`  | Revalidação pública, em lote e somente leitura             |
 | `src/app/api/auth/`          | Route Handler do NextAuth                                  |
+| `src/components/cart/`       | Provider, ações e interface do carrinho                    |
 | `src/components/storefront/` | Componentes compartilhados da vitrine                      |
 | `src/lib/auth.ts`            | Configuração da autenticação                               |
 | `src/lib/auth-rules.ts`      | Regras auxiliares de autenticação                          |
@@ -240,6 +258,8 @@ Para os próximos módulos, a organização prevista separa apresentação, regr
 | `docs/`                      | Escopo e documentação técnica                              |
 
 O código utiliza o alias `@/*` para importações a partir de `src/`. As páginas consultam módulos exclusivos do servidor diretamente, sem HTTP interno. `catalog-repository.ts` concentra os predicados Prisma e retornos explícitos; `catalog-data.ts` adiciona a fronteira de requisição do Next e preserva a inicialização tardia de `getPrisma()`.
+
+O layout raiz continua como Server Component e delega os providers a um componente cliente único. O carrinho usa Context API e reducer, persiste somente versão, UUID mínimo do proprietário e pares de produto/quantidade. Preços, disponibilidade e estoque são resolvidos no servidor em uma consulta em lote. O identificador local evita transferência entre contas no mesmo navegador, mas não comprova autenticação nem substitui a sessão HttpOnly. Sincronizações de carrinho atribuído aguardam a sessão da outra aba para não apagar os itens durante o retorno do Google; o logout, por decisão de privacidade, descarta itens locais e sincronizações pendentes.
 
 Busca, gênero, Sale e página usam `busca`, `genero`, `sale=true` e `pagina` na URL. Parâmetros repetidos ou inválidos são removidos; espaços da busca são normalizados e a entrada é limitada a 80 caracteres; páginas fora do intervalo são ajustadas depois da contagem e antes do cálculo do `offset`. A URL canônica resultante substitui a entrada inválida. Alterar busca ou filtros reinicia a página, enquanto a troca de gênero preserva busca e Sale. “Todos os discos” preserva a busca e limpa gênero e Sale.
 
@@ -420,6 +440,7 @@ npm run dev
 
 - Aplicação: [http://localhost:3000](http://localhost:3000)
 - Autenticação: [http://localhost:3000/login](http://localhost:3000/login)
+- Carrinho: [http://localhost:3000/carrinho](http://localhost:3000/carrinho)
 
 ### Build de produção
 
@@ -444,6 +465,7 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 | Migrações no futuro ambiente de produção                                                 | `DATABASE_URL`, sem banco shadow                                                               |
 | `stock:verify`                                                                           | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 | `catalog:verify`                                                                         | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
+| `cart:verify`                                                                            | Não exige banco; usa consulta controlada em memória                                            |
 
 </details>
 
@@ -457,6 +479,7 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 
 ```bash
 npm run auth:verify
+npm run cart:verify
 npm run catalog:verify
 npm run stock:verify
 npm run format:check
@@ -467,11 +490,13 @@ npm run build
 
 O script `auth:verify` verifica regras de autenticação, incluindo normalização de e-mail, rejeição de perfis inválidos, destinos de retorno e conteúdo público da sessão. Ele complementa a validação manual do OAuth real com Google.
 
+`cart:verify` verifica consolidação, edição, remoção, limites, estoque conhecido, centavos, preço promocional atual, persistência inválida, ciclo de sessão, consulta em lote, indisponibilidade, falha recuperável e descarte de respostas antigas. A suíte usa regras e fronteiras reais com uma consulta controlada em memória; não cria fixtures nem escreve em nenhum banco.
+
 `catalog:verify` usa os módulos reais de consulta e o PostgreSQL local isolado `sobe_o_som_test`. Ele verifica busca por título e artista, filtros combinados, Sale com esgotado, paginação e ordenação, parâmetros inválidos, vazio, exclusão de inativos e detalhes inexistentes. O script aplica migrações e seed no banco de teste e cria apenas uma fixture inativa controlada, removida ao final.
 
 `stock:verify` usa PostgreSQL real no banco isolado: confere o default, a restrição para negativos, os saldos de criação e a preservação de quantidades e identidades após reexecutar o seed. O seed não é um comando de reposição. A baixa transacional e os cenários concorrentes de pedidos permanecem para a M5.2.
 
-### Validações manuais da M2
+### Validações manuais
 
 O responsável pelo projeto confirmou no navegador:
 
@@ -483,7 +508,16 @@ O responsável pelo projeto confirmou no navegador:
 
 Durante essa validação, um aviso de hidratação indicava o atributo `data-dashlane-rid`. O aviso desapareceu após desativar a extensão Dashlane, confirmando a injeção pelo navegador; nenhuma alteração ou supressão de hidratação foi adicionada ao código.
 
-Essas verificações foram realizadas e confirmadas pelo responsável, não pelo agente de implementação. Cenários de carrinho, checkout, endereços, pedidos, tecnologias assistivas dedicadas e demais funcionalidades de marcos posteriores continuam pendentes.
+Na M3, o responsável também confirmou manualmente:
+
+- adição pelos cards e pelo detalhe, consolidação e alteração de quantidades;
+- restauração após recarregar, remoção, estados vazio, esgotado e indisponível;
+- preservação exata do carrinho visitante ao entrar com Google;
+- limpeza intencional no logout e isolamento na troca de conta;
+- sincronização entre duas abas, inclusive após corrigir a corrida entre sessões temporariamente diferentes durante o login;
+- home, detalhe e carrinho nas larguras de 320, 390, 768 e 1440 px, além de navegação por teclado e foco visível.
+
+Essas verificações foram realizadas e confirmadas pelo responsável, não pelo agente de implementação. Checkout, endereços, CEP, pedidos, baixa transacional, validações com tecnologias assistivas dedicadas e demais funcionalidades de marcos posteriores continuam pendentes. As verificações automatizadas não são apresentadas como validação visual ou como repetição do OAuth real.
 
 O código utiliza **quatro espaços de indentação**, sem tabulações. Para aplicar a formatação:
 
@@ -500,7 +534,7 @@ npm run format
 | Integração        | Endereços, CEP controlado, estoque, transações, autorização e idempotência   |
 | End-to-end        | Catálogo, carrinho, autenticação, endereço, revisão, pedido e histórico      |
 
-Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda serão incorporados. As verificações atuais de autenticação, catálogo e estoque não representam a suíte completa de testes da loja.
+Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda serão incorporados. As verificações atuais de autenticação, carrinho, catálogo e estoque não representam a suíte completa de testes da loja.
 
 Os testes planejados cobrirão disputa concorrente pela última unidade, reversão integral de pedidos com vários itens, repetição da confirmação, isolamento dos endereços por usuário e imutabilidade do endereço histórico do pedido. A preservação do estoque ao reexecutar o seed já é verificada em PostgreSQL real isolado. Também serão cobertas consultas de CEP com sucesso, entrada inválida, CEP não encontrado, falha, tempo limite, preenchimento manual e descarte de respostas atrasadas. Concorrência e transações usarão o banco de testes, sem consumir o banco demonstrativo; a API externa será simulada ou controlada nos testes automatizados.
 
@@ -520,6 +554,7 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 | `npm run lint`                  | Executa o ESLint                                         |
 | `npm run typecheck`             | Gera os tipos do Next.js e verifica o TypeScript         |
 | `npm run auth:verify`           | Verifica regras auxiliares de autenticação               |
+| `npm run cart:verify`           | Verifica regras, persistência e resolução do carrinho    |
 | `npm run catalog:verify`        | Verifica consultas e normalização do catálogo isolado    |
 | `npm run stock:verify`          | Verifica estoque e seed no banco local isolado           |
 | `npm run prisma:format`         | Formata o schema Prisma                                  |
@@ -547,7 +582,7 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 - [x] Preparar a base de estoque antes da M2, com migração e seed sem reposição de saldo.
 - [x] Construir a interface Mobile First, responsiva e acessível da vitrine.
 - [x] Implementar a M2 com catálogo, busca, gêneros, Sale, paginação, detalhes e estado esgotado.
-- [ ] Implementar a M3 com carrinho persistente atento à disponibilidade, sem reserva.
+- [x] Implementar a M3 com carrinho persistente atento à disponibilidade, sem reserva.
 - [ ] Adicionar cadastro e login com e-mail e senha.
 - [ ] Integrar múltiplos endereços e consulta de CEP na etapa de checkout.
 - [ ] Implementar pedidos com baixa transacional, idempotência e testes de concorrência.
