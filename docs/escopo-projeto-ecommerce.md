@@ -1,6 +1,6 @@
 # Sobe o Som — escopo e plano de evolução
 
-Versão deste documento: 0.14 · Data: 15/11/2026 · Responsável pelo projeto: Márcio Junior.
+Versão deste documento: 0.16 · Data: 16/11/2026 · Responsável pelo projeto: Márcio Junior.
 
 Este documento registra o escopo a partir da conversa inicial e do planejamento de 03/11/2026. Foram confirmados pelo responsável: nome Sobe o Som, loja de discos de vinil, estilização com Tailwind do início ao fim, NextAuth para autenticação social, Google como único provedor social e os métodos e-mail/senha na V1, preservados na V2. Também estão confirmados: header com categorias abaixo da busca, incluindo Sale; carrossel imediatamente após o header completo; fundo branco ou quase branco no catálogo; frase “Discos para ouvir, capas para guardar”; e rodapé com opções institucionais e de atendimento. A seção 17 detalha a direção visual; cores de apoio e tipografia continuam como proposta.
 
@@ -34,7 +34,7 @@ Imagens devem ser próprias ou ter uso permitido, com créditos quando exigidos.
 
 ## 3. Funcionalidades da V1
 
-Esta seção descreve o objetivo da V1. A base persistente de estoque, a vitrine da M2 e o carrinho persistente da M3 estão implementados. A baixa transacional e a concorrência de pedidos permanecem para M5.2. Endereços, consulta de CEP, checkout e pedidos ainda não estão disponíveis.
+Esta seção descreve o objetivo da V1. A base persistente de estoque, a vitrine da M2, o carrinho persistente da M3 e cadastro e credenciais da M4 estão implementados. A baixa transacional e a concorrência de pedidos permanecem para M5.2. Endereços, consulta de CEP, checkout e pedidos ainda não estão disponíveis.
 
 | ID | Funcionalidade | Escopo e critério de aceite |
 | --- | --- | --- |
@@ -131,10 +131,10 @@ As demais páginas institucionais do footer não são requisito de implementaç�
 
 ### 5.4. Autenticação e acesso
 
-- Cadastro por credenciais exige nome, e-mail válido, senha e confirmação iguais. Base proposta: senha entre 12 e 128 caracteres, sem corte silencioso. Cadastro social não exige criar senha local.
+- Cadastro por credenciais exige nome, e-mail válido, senha e confirmação iguais. A política confirmada é de 8 a 128 caracteres medidos consistentemente como comprimento de string no cliente, servidor e testes, sem trim ou corte da senha. Frases-senha, espaços e Unicode são aceitos, sem composição obrigatória. Cadastro social não exige criar senha local.
 - Normalizar e-mail com remoção de espaços externos e conversão para minúsculas; unicidade protegida no banco.
 - Senha recebe hash com algoritmo apropriado suportado pela biblioteca, como Argon2id ou scrypt; nunca armazenar texto puro nem criar algoritmo próprio. Contas exclusivamente sociais não têm senha local.
-- Biblioteca confirmada: NextAuth (Auth.js, pacote `next-auth`) para o login social com Google. A rota, a página mínima e os fluxos de login e logout com Google estão implementados. O primeiro login real, a persistência da sessão após F5 e em outra aba e o retorno desconectado após cancelamento foram validados em 12/11/2026. Em 13/11/2026, o responsável confirmou que logout seguido de atualização manteve o usuário desconectado e que um novo login com a mesma conta manteve somente um `User` e um `Account`. O login por e-mail/senha permanece no escopo e será integrado à autenticação da aplicação, mas o provider de credenciais ainda não foi implementado. A configuração inclui Google, Prisma e sessão JWT de sete dias. A futura integração com Nest deve preservar essas decisões; não implementar OAuth manualmente. O NextGram usa Auth.js com Google e sessão JWT, servindo como referência funcional.
+- Biblioteca confirmada: NextAuth (Auth.js, pacote `next-auth`) com Google e Credentials Provider na mesma sessão JWT de sete dias. A rota, as páginas e os fluxos de cadastro, login e logout estão implementados. O primeiro login Google real, a persistência após F5 e em outra aba, cancelamento, logout e retorno foram validados em 12 e 13/11/2026. A integração de credenciais foi verificada automaticamente em ambiente isolado com CSRF, cookies e sessão e validada manualmente com Google e carrinho em 16/11/2026. A futura integração com Nest deve preservar essas decisões; não implementar OAuth manualmente.
 - Sessão em cookie HttpOnly, Secure em produção, SameSite apropriado e validade explícita; duração definida em 7 dias. A forma de persistência e revogação seguirá a estratégia JWT do NextAuth, compatível com os dois métodos de entrada. A proposta anterior de token opaco com hash no banco não é uma exigência fechada. Logout invalida a sessão conforme o mecanismo adotado e limpa o cookie.
 - Google entra na V1 e continua disponível na V2 como único provedor social. O primeiro acesso social cria usuário e vínculo com o provedor quando ainda não existem. Retornos posteriores usam a identidade estável do provedor, não o e-mail como identificador OAuth.
 - O vínculo social tem unicidade por provedor e identificador da conta. Não juntar automaticamente contas apenas por igualdade de e-mail. Se o e-mail já pertencer a outra conta, informar o conflito e orientar o uso do método original; vinculação explícita de múltiplos métodos e definição posterior de senha ficam no backlog.
@@ -144,6 +144,7 @@ As demais páginas institucionais do footer não são requisito de implementaç�
 - Dados de autenticação não ficam em localStorage. Acesso a páginas protegidas e operações sensíveis verifica a sessão no servidor.
 - Requisições de alteração precisam de proteção contra CSRF e validação de origem conforme o mecanismo utilizado. Cookies, sozinhos, não substituem essa proteção.
 - Tentativas de login/cadastro devem ter limitação compatível com o ambiente de implantação; login inválido apresenta mensagem genérica.
+- A implementação usa janelas fixas atômicas no PostgreSQL antes do scrypt: login por identificador, 5 em 15 minutos; cadastro por identificador, 3 em 60 minutos; limites globais de 100 logins e 30 cadastros em 10 minutos. Chaves são HMAC e não guardam e-mail ou IP em claro. Sem proxy confiável definido, o ambiente atual não usa `X-Forwarded-For`; a publicação deverá validar a cadeia de proxies antes de derivar uma chave de IP.
 - Consultas de pedido filtram por pedido e cliente. Pedido de outra pessoa recebe resposta equivalente a não encontrado, sem expor seu conteúdo.
 - Dados de sessão e pedidos não entram em cache público compartilhado; falhas não expõem stack, hash, token ou credenciais.
 - Envio próprio de verificação de e-mail, recuperação de senha e administração de perfil não fazem parte das duas versões. A validação dos dados e tokens retornados pelos provedores faz parte do login social.
@@ -161,6 +162,7 @@ As demais páginas institucionais do footer não são requisito de implementaç�
 | --- | --- | --- |
 | User | Implementada | ID, nome, e-mail único e datas; possui identidades de autenticação; credencial local opcional para usuários sociais; passará a possuir endereços, pedidos e manifestações de privacidade |
 | Account | Implementada | Usuário, provedor e identificador estável da conta, com unicidade do par; campos de credencial/token seguem a biblioteca e só são persistidos quando necessários |
+| AuthRateLimit | Implementada | Contadores técnicos por ação e chave HMAC, com início e expiração da janela; não armazena e-mail ou IP em claro |
 | Session | Não aplicável agora | A estratégia JWT implementada não usa tabela de sessão; reavaliar apenas se a estratégia mudar |
 | Category | Implementada | ID, nome do gênero e slug único; possui produtos |
 | Product | Implementada, com evolução na V1 | Campos de catálogo, preço, Sale, ativo e `stock Int @default(0)`; a interface e a baixa em pedidos serão acrescentadas nos marcos próprios |
@@ -188,7 +190,7 @@ As verificações de estoque usam exclusivamente o banco local `sobe_o_som_test`
 | Renderização | Server Components para catálogo e páginas de dados; Client Components nas partes interativas |
 | Mutações | Server Actions nas operações da loja; autenticação usa os handlers/actions fornecidos pela biblioteca, sem duplicar os fluxos OAuth |
 | Dados | Prisma e PostgreSQL desde o início |
-| Autenticação | NextAuth (Auth.js / `next-auth`) com rota e interface mínima para Google e sessão JWT de sete dias; primeiro login, persistência, cancelamento, logout e novo login validados; login por e-mail/senha ainda não implementado |
+| Autenticação | NextAuth 4 com Credentials Provider e Google, cadastro próprio protegido e uma única sessão JWT de sete dias |
 | Validação | Schemas de entrada no servidor, com Zod como opção inicial |
 | Carrinho | Context + reducer e persistência local; sem necessidade inicial de Redux |
 | Estilos | Tailwind CSS do início ao fim, em todas as telas e estados, preservado na V2; sem CSS Modules como estratégia paralela |
@@ -343,7 +345,7 @@ Também ficam fora: microserviços, filas, Redis, Kubernetes, Elasticsearch, Gra
 | M1.2 | Concluída: base de estoque antes da M2 com campo, restrição, inicialização única, teste isolado e seed que não repõe saldo existente |
 | M2 | Concluída: header com categorias/Sale, carrossel, catálogo branco, busca por álbum/artista, filtro Sale, paginação, detalhe, estado esgotado e footer responsivos |
 | M3 | Concluída: carrinho, quantidades, persistência, estados vazios e indisponibilidade, sem reserva de estoque |
-| M4 | Cadastro, login por e-mail/senha e Google, sessão, logout, callbacks e proteção das operações |
+| M4 | Concluída: cadastro, e-mail/senha e Google na mesma sessão, logout, callbacks, scrypt, limites e validação manual conjunta |
 | M5 | Implementar o checkout com endereço, revisão, criação atômica do pedido, confirmação e histórico |
 | M5.1 | Integrar múltiplos endereços e consulta de CEP no checkout, com autorização por proprietário e fallback manual |
 | M5.2 | Implementar revisão e pedido com baixa condicional na mesma transação, snapshots, idempotência e testes de concorrência |
@@ -380,7 +382,7 @@ Na execução deste planejamento foram consultados, em modo de leitura, `6_nextg
 | Biblioteca de estilos | Confirmado: Tailwind do início ao fim, V1 e V2 | Fechado em 03/11/2026 |
 | Métodos de autenticação | Confirmado: e-mail/senha e Google desde V1; Google é o único provedor social | Revisado em 11/11/2026 |
 | Biblioteca de autenticação | Confirmado: NextAuth (Auth.js / `next-auth`) para login social | Fechado em 03/11/2026 |
-| Estratégia de sessão e integração de credenciais | NextAuth implementado com Google, Prisma e sessão JWT de sete dias; primeiro login, persistência, cancelamento, logout e novo login validados; integrar e-mail/senha e preparar futura migração para Nest | Validações Google concluídas em 13/11/2026; credenciais em M4 |
+| Estratégia de sessão e integração de credenciais | NextAuth com Google e credenciais, Prisma e sessão JWT de sete dias; cadastro próprio usa scrypt e não cria `Account` OAuth | Google validado até 13/11/2026; credenciais e revisão manual conjunta concluídas em 16/11/2026 |
 | Catálogo inicial | Proposta: 24 LPs novos, 6 gêneros, sem variantes | Antes do seed e das telas |
 | Estoque simples | Confirmado: saldo em `Product`, restrição de não negativo, sem movimentos ou reserva; seed não repõe consumo | Base em M1.2; interface em M2/M3; baixa em M5.2 |
 | Endereços | Confirmado: múltiplos endereços brasileiros, propriedade verificada no servidor e snapshot no pedido; gestão inicial no checkout | M5.1 e M5.2 |
@@ -388,7 +390,7 @@ Na execução deste planejamento foram consultados, em modo de leitura, `6_nextg
 | Privacidade | Cuidados aplicáveis desde a V1; aviso acessível e registro versionado da manifestação entram como funcionalidade na V2 | Informações de publicação antes da V1; funcionalidade em M7 |
 | Versões e dependências | Releases estáveis e compatíveis, verificadas no início | M1 |
 | Provedores de hospedagem e banco | Next com runtime servidor e PostgreSQL persistente | Antes da publicação da V1 |
-| Infraestrutura de limitação de tentativas | Persistente e compatível com a hospedagem | Implementação da autenticação |
+| Infraestrutura de limitação de tentativas | Tabela PostgreSQL com janelas fixas, atualizações atômicas, expiração e chaves HMAC; IP depende de proxy confiável na publicação | Implementada na M4 |
 | Horas semanais e previsão | Ainda não informadas | Antes de estimar calendário |
 
 ## 15. Referências técnicas
@@ -425,6 +427,8 @@ As escolhas de escopo e arquitetura são recomendações para este projeto. As r
 | 0.12 | 15/11/2026 | M2 implementada com vitrine Mobile First, busca e filtros na URL, Sale, paginação, detalhes, disponibilidade, carrossel manual, footer, estados de interface e verificação isolada do catálogo; validações manuais confirmadas pelo responsável; compra permanece para a M3 |
 | 0.13 | 15/11/2026 | M3 implementada com Context e reducer, persistência local versionada, ciclo de sessão e abas, resolução pública em lote, ações na vitrine, página de carrinho, conflitos de estoque e verificação automatizada; validação manual da interface permanece pendente |
 | 0.14 | 15/11/2026 | Revisão final da M3 registra validações manuais confirmadas pelo responsável, incluindo responsividade, teclado, F5, login Google, logout, troca de conta, indisponibilidade e duas abas; a corrida que apagava o carrinho visitante no login foi corrigida sem alterar a limpeza intencional no logout; checkout, endereços, CEP, pedidos e baixa transacional permanecem planejados |
+| 0.15 | 16/11/2026 | M4 implementa cadastro e Credentials Provider no NextAuth, senha de 8 a 128 caracteres com scrypt versionado, conflito sem vinculação automática, limites persistentes com chaves HMAC, proteção de origem, retornos para o carrinho e verificação isolada com PostgreSQL, CSRF e cookies; validação manual conjunta permanece pendente |
+| 0.16 | 16/11/2026 | Revisão final da M4 registra as validações manuais confirmadas de cadastro, credenciais, Google, sessão, duas abas, responsividade, logout e carrinho; documenta que editar a senha durante o bloqueio não gera requisição e que novos envios continuam recusados no servidor antes do scrypt até a expiração |
 
 ## 17. Identidade visual e composição da página inicial
 
@@ -522,5 +526,7 @@ Toda a interface de produção continua sendo implementada com Tailwind, utiliza
 Na conclusão da M2, o responsável confirmou manualmente busca por álbum e artista, combinação de filtros, paginação, atualização e voltar/avançar, detalhes de produto disponível, esgotado e inexistente, home e detalhe em 320, 390, 768 e 1440 px, carrossel, teclado e header conectado/desconectado. Um aviso de hidratação com `data-dashlane-rid` desapareceu após desativar a extensão Dashlane; a causa era a injeção da extensão e não exigiu alteração nem supressão no código.
 
 Na conclusão da M3, o responsável confirmou adições pelos cards e detalhe, quantidades, remoção, restauração após F5, estados vazio e indisponível, login Google com preservação do carrinho visitante, limpeza no logout, isolamento entre contas, sincronização entre abas e composição da home, detalhe e carrinho em 320, 390, 768 e 1440 px. O login e duas abas foram retestados depois da correção da corrida de sessão descrita na versão 0.14. Navegação por teclado e foco visível também foram conferidos; testes com tecnologias assistivas dedicadas não foram declarados como realizados. Checkout, endereços, CEP, pedidos, baixa transacional e a revisão completa da V1 permanecem pendentes.
+
+Na conclusão da M4, o responsável confirmou cadastro e validações, credenciais inválidas e válidas, conflito de e-mail, login Google, sessão após F5 e em duas abas, atualização do header, logout, preservação e isolamento do carrinho e responsividade de login e cadastro em 320, 390, 768 e 1440 px, incluindo teclado e foco visível. A mensagem de limite de login também foi confirmada; manter o campo editável não envia requisição durante a digitação nem desativa a recusa persistente aplicada a cada novo envio. Testes com tecnologias assistivas dedicadas e a configuração final de publicação não foram declarados como concluídos.
 
 A proposta pode ser avaliada em uma composição demonstrativa da home antes da implementação. Álbuns, capas geométricas e preços usados nessa composição são ilustrativos e não estabelecem o catálogo definitivo.

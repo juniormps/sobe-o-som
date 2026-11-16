@@ -2,30 +2,64 @@
 
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 import { useCart } from "@/components/cart/cart-provider";
+import { GoogleMark } from "@/components/auth/google-mark";
+import { getAuthErrorMessage, type SafeReturnPath } from "@/lib/auth-rules";
 
 type LoginClientProps = {
-    callbackUrl: "/" | "/login";
+    callbackUrl: SafeReturnPath;
     initialError: string | null;
 };
 
-export function LoginClient(props: LoginClientProps) {
-    return <LoginPanel {...props} />;
-}
+type PendingAction = "credentials" | "google" | "out" | null;
 
-function LoginPanel({ callbackUrl, initialError }: LoginClientProps) {
+export function LoginClient({ callbackUrl, initialError }: LoginClientProps) {
     const { data: session, status } = useSession();
     const { clearForLogout } = useCart();
-    const [pendingAction, setPendingAction] = useState<"in" | "out" | null>(
-        null,
-    );
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [pendingAction, setPendingAction] = useState<PendingAction>(null);
     const [actionError, setActionError] = useState<string | null>(null);
     const errorMessage = actionError ?? initialError;
+    const errorId = errorMessage ? "login-error" : undefined;
 
-    async function handleSignIn() {
-        setPendingAction("in");
+    async function handleCredentialsSignIn(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setPendingAction("credentials");
+        setActionError(null);
+
+        try {
+            const result = await signIn("credentials", {
+                callbackUrl,
+                email,
+                password,
+                redirect: false,
+            });
+
+            if (!result?.ok) {
+                setPassword("");
+                setActionError(
+                    getAuthErrorMessage(result?.error) ??
+                        "Não foi possível entrar. Tente novamente.",
+                );
+                setPendingAction(null);
+                return;
+            }
+
+            window.location.assign(result.url ?? callbackUrl);
+        } catch {
+            setPassword("");
+            setActionError(
+                "Não foi possível entrar agora. Verifique sua conexão e tente novamente.",
+            );
+            setPendingAction(null);
+        }
+    }
+
+    async function handleGoogleSignIn() {
+        setPendingAction("google");
         setActionError(null);
 
         try {
@@ -81,12 +115,13 @@ function LoginPanel({ callbackUrl, initialError }: LoginClientProps) {
                 <p className="mt-4 max-w-md text-base leading-7 text-stone-600">
                     {status === "authenticated"
                         ? "Você já está conectado."
-                        : "Entre com o Google para acessar sua conta."}
+                        : "Entre com e-mail e senha ou continue com o Google."}
                 </p>
 
                 {errorMessage ? (
                     <div
                         className="mt-6 border-l-4 border-red-700 bg-red-50 px-4 py-3 text-sm leading-6 text-red-950"
+                        id="login-error"
                         role="alert"
                     >
                         {errorMessage}
@@ -107,7 +142,7 @@ function LoginPanel({ callbackUrl, initialError }: LoginClientProps) {
                                 Conta conectada
                             </p>
                             <p className="mt-3 text-xl font-bold">
-                                {session.user.name ?? "Conta Google"}
+                                {session.user.name ?? "Sua conta"}
                             </p>
                             {session.user.email ? (
                                 <p className="mt-1 break-all text-sm text-stone-600">
@@ -124,17 +159,106 @@ function LoginPanel({ callbackUrl, initialError }: LoginClientProps) {
                             </button>
                         </div>
                     ) : (
-                        <button
-                            className="flex w-full items-center justify-center gap-3 border-2 border-stone-950 bg-white px-5 py-3.5 text-sm font-bold transition hover:bg-stone-950 hover:text-white focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-orange-600 disabled:cursor-wait disabled:opacity-60"
-                            disabled={pendingAction !== null}
-                            onClick={handleSignIn}
-                            type="button"
-                        >
-                            <GoogleMark />
-                            {pendingAction === "in"
-                                ? "Abrindo o Google..."
-                                : "Continuar com Google"}
-                        </button>
+                        <div>
+                            <form
+                                aria-describedby={errorId}
+                                className="space-y-5"
+                                onSubmit={handleCredentialsSignIn}
+                            >
+                                <div>
+                                    <label
+                                        className="text-sm font-bold text-stone-800"
+                                        htmlFor="login-email"
+                                    >
+                                        E-mail
+                                    </label>
+                                    <input
+                                        aria-invalid={Boolean(errorMessage)}
+                                        autoComplete="email"
+                                        className="mt-2 w-full border-2 border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-950 focus-visible:ring-3 focus-visible:ring-orange-500/40"
+                                        id="login-email"
+                                        maxLength={320}
+                                        name="email"
+                                        onChange={(event) =>
+                                            setEmail(event.target.value)
+                                        }
+                                        required
+                                        type="email"
+                                        value={email}
+                                    />
+                                </div>
+                                <div>
+                                    <label
+                                        className="text-sm font-bold text-stone-800"
+                                        htmlFor="login-password"
+                                    >
+                                        Senha
+                                    </label>
+                                    <p
+                                        className="mt-1 text-xs leading-5 text-stone-600"
+                                        id="login-password-hint"
+                                    >
+                                        Use de 8 a 128 caracteres.
+                                    </p>
+                                    <input
+                                        aria-describedby={
+                                            errorId
+                                                ? `login-password-hint ${errorId}`
+                                                : "login-password-hint"
+                                        }
+                                        aria-invalid={Boolean(errorMessage)}
+                                        autoComplete="current-password"
+                                        className="mt-2 w-full border-2 border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-stone-950 focus-visible:ring-3 focus-visible:ring-orange-500/40"
+                                        id="login-password"
+                                        maxLength={128}
+                                        minLength={8}
+                                        name="password"
+                                        onChange={(event) =>
+                                            setPassword(event.target.value)
+                                        }
+                                        required
+                                        type="password"
+                                        value={password}
+                                    />
+                                </div>
+                                <button
+                                    className="w-full border-2 border-stone-950 bg-stone-950 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-orange-700 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-orange-600 disabled:cursor-wait disabled:opacity-60"
+                                    disabled={pendingAction !== null}
+                                    type="submit"
+                                >
+                                    {pendingAction === "credentials"
+                                        ? "Entrando..."
+                                        : "Entrar"}
+                                </button>
+                            </form>
+
+                            <p className="my-6 flex items-center gap-3 text-xs font-bold tracking-widest text-stone-500 uppercase before:h-px before:flex-1 before:bg-stone-300 after:h-px after:flex-1 after:bg-stone-300">
+                                ou
+                            </p>
+                            <button
+                                className="flex w-full items-center justify-center gap-3 border-2 border-stone-950 bg-white px-5 py-3.5 text-sm font-bold transition hover:bg-stone-950 hover:text-white focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-orange-600 disabled:cursor-wait disabled:opacity-60"
+                                disabled={pendingAction !== null}
+                                onClick={handleGoogleSignIn}
+                                type="button"
+                            >
+                                <GoogleMark />
+                                {pendingAction === "google"
+                                    ? "Abrindo o Google..."
+                                    : "Continuar com Google"}
+                            </button>
+                            <p className="mt-6 text-center text-sm text-stone-600">
+                                Ainda não tem uma conta?{" "}
+                                <Link
+                                    className="font-bold text-stone-950 underline decoration-orange-600 decoration-2 underline-offset-4 hover:text-orange-700 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-orange-600"
+                                    href={{
+                                        pathname: "/cadastro",
+                                        query: { callbackUrl },
+                                    }}
+                                >
+                                    Cadastre-se
+                                </Link>
+                            </p>
+                        </div>
                     )}
                 </div>
 
@@ -146,28 +270,5 @@ function LoginPanel({ callbackUrl, initialError }: LoginClientProps) {
                 </Link>
             </section>
         </main>
-    );
-}
-
-function GoogleMark() {
-    return (
-        <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24">
-            <path
-                d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.55h3.24c1.9-1.75 2.98-4.33 2.98-7.42Z"
-                fill="#4285F4"
-            />
-            <path
-                d="M12 22c2.7 0 4.97-.9 6.62-2.35l-3.24-2.55c-.9.6-2.05.96-3.38.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.63A10 10 0 0 0 12 22Z"
-                fill="#34A853"
-            />
-            <path
-                d="M6.39 13.93A6.02 6.02 0 0 1 6.07 12c0-.67.12-1.32.32-1.93V7.44H3.04A10 10 0 0 0 2 12c0 1.64.39 3.19 1.04 4.56l3.35-2.63Z"
-                fill="#FBBC05"
-            />
-            <path
-                d="M12 5.94c1.47 0 2.79.5 3.82 1.5l2.87-2.87A9.62 9.62 0 0 0 12 2a10 10 0 0 0-8.96 5.44l3.35 2.63C7.18 7.7 9.39 5.94 12 5.94Z"
-                fill="#EA4335"
-            />
-        </svg>
     );
 }

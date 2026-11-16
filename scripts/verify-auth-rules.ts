@@ -17,6 +17,7 @@ assert.equal(
 );
 assert.equal(normalizeEmail("   "), null);
 assert.equal(normalizeEmail(undefined), null);
+assert.equal(normalizeEmail("pessoa\u0000@example.com"), null);
 
 const validProfile = {
     sub: "google-stable-id",
@@ -47,9 +48,11 @@ assert.equal(
 
 assert.equal(getSafeReturnPath("/"), "/");
 assert.equal(getSafeReturnPath("/login"), "/login");
+assert.equal(getSafeReturnPath("/carrinho"), "/carrinho");
 assert.equal(getSafeReturnPath("https://example.com"), "/login");
 assert.equal(getSafeReturnPath("//example.com"), "/login");
 assert.equal(getSafeReturnPath("/login?next=/"), "/login");
+assert.equal(getSafeReturnPath("/carrinho?next=/"), "/login");
 assert.equal(getSafeReturnPath("/%"), "/login");
 
 assert.equal(
@@ -59,6 +62,10 @@ assert.equal(
 assert.equal(
     getSafeRedirectUrl("https://example.com", "http://localhost:3000"),
     "http://localhost:3000/login",
+);
+assert.equal(
+    getSafeRedirectUrl("/carrinho", "http://localhost:3000"),
+    "http://localhost:3000/carrinho",
 );
 
 const publicSession = toPublicSession(
@@ -89,6 +96,10 @@ const unknownAuthErrorMessage =
     "Não foi possível autenticar sua conta. Tente novamente em instantes.";
 
 assert.match(getAuthErrorMessage("AccessDenied") ?? "", /acesso foi recusado/i);
+assert.equal(
+    getAuthErrorMessage("CredentialsSignin"),
+    "E-mail ou senha inválidos.",
+);
 assert.equal(
     getAuthErrorMessage("OAuthCallback"),
     "O login não foi concluído. Você pode tentar entrar novamente.",

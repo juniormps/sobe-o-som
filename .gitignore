@@ -10,6 +10,7 @@
 
 # Next.js and production builds
 /.next/
+/.next-credentials-verify/
 /out/
 /build/
 /src/generated/prisma/

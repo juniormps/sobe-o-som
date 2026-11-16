@@ -38,7 +38,7 @@
     <a href="#roadmap">Roadmap</a>
 </p>
 
-> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido, o login com Google, a vitrine pública e o carrinho persistente já estão implementados. Checkout e pedidos serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
+> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido, o cadastro, os logins com credenciais e Google, a vitrine pública e o carrinho persistente já estão implementados. Checkout e pedidos serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
 
 ---
 
@@ -95,13 +95,13 @@ Esses recursos serão implementados de forma incremental, conforme o [roadmap](#
 | Base da aplicação               | ✅ Next.js, App Router, TypeScript estrito e Tailwind configurados              |
 | Persistência                    | ✅ Prisma, PostgreSQL, migrações e seed com 6 gêneros e 24 discos fictícios     |
 | Base de estoque                 | ✅ Saldo não negativo no PostgreSQL e seed sem reposição de estoques existentes |
-| Autenticação social             | ✅ Login e logout com Google, página `/login` e sessão JWT                      |
+| Autenticação                    | ✅ Cadastro, e-mail/senha, Google, logout, limites persistentes e sessão JWT    |
 | Verificações de desenvolvimento | ✅ Carrinho, catálogo, autenticação, estoque, formatação, lint, tipos e build   |
 | Interface da loja               | ✅ Home, navegação, busca, filtros, paginação, detalhes e estados responsivos   |
 | Estados de disponibilidade      | ✅ Disponível, esgotado, conflito de saldo e produto indisponível no carrinho   |
 | Carrinho                        | ✅ Context + reducer, persistência local, revalidação em lote e sincronização   |
 | Fluxo de compra                 | ⏳ Endereços, CEP, checkout simulado e pedidos planejados                       |
-| Login por e-mail e senha        | ⏳ Cadastro e provider de credenciais planejados                                |
+| Proteção de operações           | ✅ Origem do cadastro, CSRF do NextAuth e helper de identidade autenticada      |
 | Testes da loja, CI e publicação | ⏳ Previstos para a primeira versão completa                                    |
 | API Nest.js e Docker            | 🔜 Evolução posterior à entrega da V1                                           |
 
@@ -115,7 +115,9 @@ A página inicial é a vitrine Mobile First em português do Brasil. A publicaç
 
 ### ✅ Disponíveis nesta etapa
 
-- Login e logout com Google pela página `/login`.
+- Cadastro em `/cadastro` e login por e-mail/senha ou Google em `/login`.
+- Senhas de 8 a 128 caracteres, incluindo frases-senha, espaços e Unicode, armazenadas somente como hash scrypt versionado.
+- Limitação persistente e concorrente de cadastro e login no PostgreSQL.
 - Criação de usuário e vínculo social no primeiro acesso válido.
 - Reutilização da identidade do provedor em acessos posteriores.
 - Sessão JWT gerenciada pelo NextAuth, com identificação do usuário na interface.
@@ -166,10 +168,10 @@ A vitrine e o carrinho apenas consultam o estoque persistido. A baixa condiciona
 - Não reservar estoque; confirmar a disponibilidade somente ao registrar o pedido.
 - Prevenir pedidos duplicados por clique duplo ou repetição da mesma tentativa.
 
-### 📦 Conta e pedidos — planejados
+### 📦 Conta e pedidos
 
-- Cadastro e login com e-mail e senha, além do Google já disponível.
-- Armazenamento seguro do hash da senha.
+- Cadastro e login com e-mail e senha, além do Google, estão disponíveis.
+- Vinculação de métodos, recuperação de senha e gerenciamento de perfil permanecem fora da V1.
 - Múltiplos endereços vinculados ao cliente, inicialmente cadastrados e selecionados dentro do checkout.
 - Criação do pedido, dos itens, da cópia do endereço confirmado e da baixa condicional de estoque em uma única transação.
 - Confirmação com identificador, data, itens e total.
@@ -227,7 +229,9 @@ Browser["Navegador"] --> Pages["Páginas Next.js / React"]
     Cart --> CartResolve["POST /api/cart/resolve"]
     CartResolve --> Prisma
     Pages --> Auth["NextAuth / Route Handler"]
+    Pages --> Register["POST /api/auth/register"]
     Auth <--> Google["Google OAuth"]
+    Register --> Prisma
     Auth --> Prisma["Prisma Adapter / Prisma Client"]
     Prisma --> Database[(PostgreSQL)]
 ```
@@ -239,11 +243,12 @@ Para os próximos módulos, a organização prevista separa apresentação, regr
 | Caminho                      | Responsabilidade                                           |
 | ---------------------------- | ---------------------------------------------------------- |
 | `src/app/`                   | Páginas, layout, estilos globais e rotas do App Router     |
-| `src/app/login/`             | Página e interface de autenticação                         |
+| `src/app/login/`             | Entrada por e-mail/senha ou Google e logout                |
+| `src/app/cadastro/`          | Cadastro por credenciais ou acesso pelo Google             |
 | `src/app/produtos/`          | Detalhes públicos dos discos                               |
 | `src/app/carrinho/`          | Página pública do carrinho                                 |
 | `src/app/api/cart/resolve/`  | Revalidação pública, em lote e somente leitura             |
-| `src/app/api/auth/`          | Route Handler do NextAuth                                  |
+| `src/app/api/auth/`          | NextAuth e operação protegida de cadastro                  |
 | `src/components/cart/`       | Provider, ações e interface do carrinho                    |
 | `src/components/storefront/` | Componentes compartilhados da vitrine                      |
 | `src/lib/auth.ts`            | Configuração da autenticação                               |
@@ -277,12 +282,13 @@ A migração será uma evolução do mesmo projeto; a primeira versão terá sua
 
 ### Modelos implementados
 
-| Modelo     | Responsabilidade                                                     |
-| ---------- | -------------------------------------------------------------------- |
-| `Category` | Gênero musical, com nome e slug únicos                               |
-| `Product`  | Álbum, artista, descrição, capa, preços, estoque, status e categoria |
-| `User`     | Identidade interna, e-mail único e dados do usuário                  |
-| `Account`  | Vínculo entre usuário e identidade OAuth do provedor                 |
+| Modelo          | Responsabilidade                                                     |
+| --------------- | -------------------------------------------------------------------- |
+| `Category`      | Gênero musical, com nome e slug únicos                               |
+| `Product`       | Álbum, artista, descrição, capa, preços, estoque, status e categoria |
+| `User`          | Identidade interna, e-mail único e credencial local opcional         |
+| `Account`       | Vínculo entre usuário e identidade OAuth do provedor                 |
+| `AuthRateLimit` | Janelas e contadores técnicos de tentativas de autenticação          |
 
 Uma categoria possui vários produtos; um usuário pode possuir vínculos de autenticação. A combinação `provider` + `providerAccountId` é única.
 
@@ -310,8 +316,12 @@ O projeto utiliza Prisma **7.10.1**, gerador `prisma-client` com saída explíci
 
 ### Implementação atual
 
-- **Google como único provedor social**, integrado pelo NextAuth 4.
-- Criação de `User` e `Account` no primeiro login válido.
+- **Credentials Provider e Google**, integrados à mesma sessão do NextAuth 4.
+- Cadastro com nome, e-mail normalizado e senha de 8 a 128 caracteres, sem regras artificiais de composição.
+- Hash scrypt assíncrono versionado com `N=131072`, `r=8`, `p=1`, salt aleatório e comparação segura.
+- Até duas derivações scrypt simultâneas por processo, evitando pressão de memória sem fila ilimitada.
+- Contadores persistentes com janelas fixas e operações atômicas antes do scrypt: login por identificador, 5 tentativas em 15 minutos; cadastro por identificador, 3 em 60 minutos; limites globais de 100 logins e 30 cadastros em 10 minutos.
+- Criação de `User` e `Account` no primeiro login Google válido; credenciais criam somente `User` no cadastro.
 - Identificação de retornos pelo identificador estável do Google.
 - Normalização de e-mail com remoção de espaços externos e conversão para minúsculas.
 - Rejeição de perfis sem e-mail utilizável ou sem confirmação de e-mail pelo provedor.
@@ -319,15 +329,19 @@ O projeto utiliza Prisma **7.10.1**, gerador `prisma-client` com saída explíci
 - Sessão JWT gerenciada em **cookie HttpOnly**, sem armazenamento de autenticação em `localStorage`.
 - Sessão pública limitada à expiração e aos dados necessários de identificação, incluindo o UUID interno do usuário.
 - Validação dos destinos de retorno, evitando redirecionamentos externos indevidos.
+- Retornos aceitos somente para `/`, `/login` e `/carrinho`, preservados entre login e cadastro.
+- Cadastro JSON limitado a 8 KiB, mesma origem obrigatória e respostas sem cache; o NextAuth mantém CSRF e cookies do login.
 - Segredos restritos ao servidor e configuração validada quando a autenticação é utilizada.
 
 `session.maxAge` e `jwt.maxAge` estão configurados para **sete dias**. O NextAuth pode renovar a validade durante o uso da sessão. O logout remove o cookie do navegador; a estratégia atual não mantém registros de sessão no banco para revogação individual em outros dispositivos.
 
 O fluxo real com Google já foi validado para primeiro acesso, persistência após atualização, cancelamento, logout seguido de atualização e novo login com a mesma conta. Este último manteve somente um `User` e um `Account`.
 
-### Próximas etapas de segurança
+### Limites e próximas etapas
 
-O cadastro com senha, seu hash, a limitação de tentativas e a autorização de endereços e pedidos serão implementados nos respectivos módulos. Toda consulta ou alteração deverá obter o usuário da sessão no servidor, sem confiar em `userId` enviado pelo navegador.
+O helper exclusivo do servidor obtém a identidade da sessão e confirma a existência do usuário; endereços, checkout e pedidos deverão usá-lo nos respectivos marcos, sem confiar em `userId` ou proprietário de carrinho enviado pelo navegador. Recuperação e verificação de e-mail, vinculação de métodos e definição de senha para conta Google permanecem fora desta entrega.
+
+Como a aplicação local atual não está atrás de um proxy confiável, cabeçalhos como `X-Forwarded-For` não são usados para identificar IP. O limite agregado global complementa o limite por identificador. Na publicação, a cadeia de proxies deverá ser definida e validada antes de acrescentar uma chave derivada de IP confiável; nunca se deve aceitar indiscriminadamente um valor enviado pelo cliente.
 
 Detalhes da estratégia e das verificações estão em [`docs/auth-model.md`](docs/auth-model.md).
 
@@ -466,6 +480,7 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 | `stock:verify`                                                                           | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 | `catalog:verify`                                                                         | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 | `cart:verify`                                                                            | Não exige banco; usa consulta controlada em memória                                            |
+| `credentials:verify`                                                                     | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 
 </details>
 
@@ -479,6 +494,7 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 
 ```bash
 npm run auth:verify
+npm run credentials:verify
 npm run cart:verify
 npm run catalog:verify
 npm run stock:verify
@@ -489,6 +505,8 @@ npm run build
 ```
 
 O script `auth:verify` verifica regras de autenticação, incluindo normalização de e-mail, rejeição de perfis inválidos, destinos de retorno e conteúdo público da sessão. Ele complementa a validação manual do OAuth real com Google.
+
+`credentials:verify` aplica as migrações no PostgreSQL local isolado, usa somente fixtures controladas e cobre validação, scrypt, conflitos e concorrência de cadastro, conta Google sem senha, origem, limites e expiração. Também inicia a aplicação com saída de build isolada e percorre o callback real do Credentials Provider com CSRF, cookies e sessão pública; não automatiza nem declara o OAuth real do Google.
 
 `cart:verify` verifica consolidação, edição, remoção, limites, estoque conhecido, centavos, preço promocional atual, persistência inválida, ciclo de sessão, consulta em lote, indisponibilidade, falha recuperável e descarte de respostas antigas. A suíte usa regras e fronteiras reais com uma consulta controlada em memória; não cria fixtures nem escreve em nenhum banco.
 
@@ -517,7 +535,17 @@ Na M3, o responsável também confirmou manualmente:
 - sincronização entre duas abas, inclusive após corrigir a corrida entre sessões temporariamente diferentes durante o login;
 - home, detalhe e carrinho nas larguras de 320, 390, 768 e 1440 px, além de navegação por teclado e foco visível.
 
-Essas verificações foram realizadas e confirmadas pelo responsável, não pelo agente de implementação. Checkout, endereços, CEP, pedidos, baixa transacional, validações com tecnologias assistivas dedicadas e demais funcionalidades de marcos posteriores continuam pendentes. As verificações automatizadas não são apresentadas como validação visual ou como repetição do OAuth real.
+Na M4, o responsável confirmou manualmente:
+
+- cadastro, validações de nome, e-mail, senha e confirmação, conflito de e-mail e condução ao login;
+- login por credenciais, mensagens para dados inválidos e limitação de tentativas;
+- login Google, sessão após F5 e em duas abas, atualização do header e logout;
+- preservação do carrinho visitante nos dois métodos, limpeza no logout e isolamento entre contas;
+- login e cadastro nas larguras de 320, 390, 768 e 1440 px, com teclado e foco visível.
+
+Ao atingir o limite de login, o campo de senha permanece editável por decisão de escopo. Digitar nele altera somente o estado local do formulário e não envia requisição. Cada novo envio chama novamente o callback de credenciais, mas o servidor recusa a tentativa pelo contador persistente antes do scrypt e não cria sessão. Recarregar ou usar outra aba não remove o bloqueio; a janela expira conforme a política documentada.
+
+Essas verificações foram realizadas e confirmadas pelo responsável, não pelo agente de implementação. Checkout, endereços, CEP, pedidos, baixa transacional, configuração final de publicação, validações com tecnologias assistivas dedicadas e demais funcionalidades de marcos posteriores continuam pendentes. As verificações automatizadas não são apresentadas como validação visual ou como repetição do OAuth real.
 
 O código utiliza **quatro espaços de indentação**, sem tabulações. Para aplicar a formatação:
 
@@ -544,27 +572,28 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 
 ## 📜 Scripts disponíveis
 
-| Comando                         | Descrição                                                |
-| ------------------------------- | -------------------------------------------------------- |
-| `npm run dev`                   | Inicia o ambiente de desenvolvimento                     |
-| `npm run build`                 | Gera o Prisma Client e o build de produção               |
-| `npm start`                     | Executa a aplicação compilada                            |
-| `npm run format`                | Aplica a formatação com Prettier                         |
-| `npm run format:check`          | Verifica a formatação                                    |
-| `npm run lint`                  | Executa o ESLint                                         |
-| `npm run typecheck`             | Gera os tipos do Next.js e verifica o TypeScript         |
-| `npm run auth:verify`           | Verifica regras auxiliares de autenticação               |
-| `npm run cart:verify`           | Verifica regras, persistência e resolução do carrinho    |
-| `npm run catalog:verify`        | Verifica consultas e normalização do catálogo isolado    |
-| `npm run stock:verify`          | Verifica estoque e seed no banco local isolado           |
-| `npm run prisma:format`         | Formata o schema Prisma                                  |
-| `npm run prisma:generate`       | Gera o Prisma Client                                     |
-| `npm run prisma:validate`       | Valida o schema Prisma                                   |
-| `npm run prisma:migrate`        | Valida as URLs e executa as migrações de desenvolvimento |
-| `npm run prisma:migrate:deploy` | Aplica migrações versionadas sem usar banco shadow       |
-| `npm run prisma:migrate:status` | Consulta o estado das migrações                          |
-| `npm run prisma:seed`           | Cria ou atualiza o catálogo demonstrativo                |
-| `npm run prisma:studio`         | Abre a interface de inspeção do banco                    |
+| Comando                         | Descrição                                                 |
+| ------------------------------- | --------------------------------------------------------- |
+| `npm run dev`                   | Inicia o ambiente de desenvolvimento                      |
+| `npm run build`                 | Gera o Prisma Client e o build de produção                |
+| `npm start`                     | Executa a aplicação compilada                             |
+| `npm run format`                | Aplica a formatação com Prettier                          |
+| `npm run format:check`          | Verifica a formatação                                     |
+| `npm run lint`                  | Executa o ESLint                                          |
+| `npm run typecheck`             | Gera os tipos do Next.js e verifica o TypeScript          |
+| `npm run auth:verify`           | Verifica regras auxiliares de autenticação                |
+| `npm run credentials:verify`    | Verifica cadastro e credenciais com PostgreSQL e NextAuth |
+| `npm run cart:verify`           | Verifica regras, persistência e resolução do carrinho     |
+| `npm run catalog:verify`        | Verifica consultas e normalização do catálogo isolado     |
+| `npm run stock:verify`          | Verifica estoque e seed no banco local isolado            |
+| `npm run prisma:format`         | Formata o schema Prisma                                   |
+| `npm run prisma:generate`       | Gera o Prisma Client                                      |
+| `npm run prisma:validate`       | Valida o schema Prisma                                    |
+| `npm run prisma:migrate`        | Valida as URLs e executa as migrações de desenvolvimento  |
+| `npm run prisma:migrate:deploy` | Aplica migrações versionadas sem usar banco shadow        |
+| `npm run prisma:migrate:status` | Consulta o estado das migrações                           |
+| `npm run prisma:seed`           | Cria ou atualiza o catálogo demonstrativo                 |
+| `npm run prisma:studio`         | Abre a interface de inspeção do banco                     |
 
 ---
 
@@ -583,7 +612,7 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 - [x] Construir a interface Mobile First, responsiva e acessível da vitrine.
 - [x] Implementar a M2 com catálogo, busca, gêneros, Sale, paginação, detalhes e estado esgotado.
 - [x] Implementar a M3 com carrinho persistente atento à disponibilidade, sem reserva.
-- [ ] Adicionar cadastro e login com e-mail e senha.
+- [x] Adicionar cadastro e login com e-mail e senha.
 - [ ] Integrar múltiplos endereços e consulta de CEP na etapa de checkout.
 - [ ] Implementar pedidos com baixa transacional, idempotência e testes de concorrência.
 - [ ] Implementar confirmação e histórico de pedidos com cópias dos dados históricos.

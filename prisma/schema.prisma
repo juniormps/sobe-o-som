@@ -19,6 +19,18 @@ model User {
   updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
 }
 
+model AuthRateLimit {
+  action          String   @db.VarChar(32)
+  keyHash         String   @db.Char(64)
+  attemptCount    Int
+  windowStartedAt DateTime @db.Timestamptz(3)
+  expiresAt       DateTime @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  @@id([action, keyHash])
+  @@index([expiresAt])
+}
+
 model Account {
   id                String   @id @default(uuid()) @db.Uuid
   userId            String   @db.Uuid

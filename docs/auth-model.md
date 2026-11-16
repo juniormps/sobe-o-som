@@ -1,147 +1,199 @@
-# Modelo inicial de autenticação
+# Modelo de autenticação
 
 ## Versões e compatibilidade
 
-A base usa versões exatas e estáveis:
+A autenticação usa as versões instaladas `next-auth@4.24.15`,
+`@next-auth/prisma-adapter@1.0.7` e `@prisma/client@7.10.1`. A configuração em
+`src/lib/auth.ts` continua tipada com `NextAuthOptions` e não usa APIs do
+NextAuth 5. Google e Credentials Provider compartilham a mesma sessão; não há
+sessão paralela nem autenticação própria fora do NextAuth.
 
-- `next-auth@4.24.15`;
-- `@next-auth/prisma-adapter@1.0.7`;
-- `@prisma/client@7.10.1`.
+O Prisma Client, o adaptador e as opções são inicializados somente quando uma
+requisição de autenticação precisa deles. `prisma generate`, `postinstall` e o
+build não abrem conexão com o PostgreSQL nem exigem segredos utilizáveis. O
+runtime é Node.js, necessário para Prisma, NextAuth e `node:crypto`.
 
-O pacote `@next-auth/prisma-adapter` é o adaptador Prisma oficial da linha do
-NextAuth 4. Sua versão 1.0.7 declara `next-auth: ^4` e
-`@prisma/client: >=2.26.0 || >=3` como peer dependencies. O NextAuth 4.24.15, por
-sua vez, aceita as versões de Next.js e React usadas pelo projeto.
+## Estado implementado
 
-O adaptador retorna o tipo `Adapter` de `next-auth/adapters`, o mesmo aceito por
-`NextAuthOptions`. A configuração em `src/lib/auth.ts` usa
-`satisfies NextAuthOptions`; a geração do Prisma Client 7 e a verificação do
-TypeScript confirmam a compatibilidade sem casts. Não são usadas APIs nem nomes de
-variáveis do NextAuth 5, e o adaptador `@auth/prisma-adapter` dessa outra linha não
-foi misturado à configuração.
+A M4 oferece:
 
-As fontes específicas consultadas foram os metadados publicados de
-[`next-auth@4.24.15`](https://registry.npmjs.org/next-auth/4.24.15),
-[`@next-auth/prisma-adapter@1.0.7`](https://registry.npmjs.org/@next-auth/prisma-adapter/1.0.7)
-e [`@prisma/client@7.10.1`](https://registry.npmjs.org/@prisma/client/7.10.1),
-além das declarações de tipos distribuídas nesses pacotes e da
-[documentação de opções do NextAuth 4](https://next-auth.js.org/configuration/options).
+- cadastro por nome, e-mail, senha e confirmação em `/cadastro`;
+- login por e-mail/senha ou Google em `/login`;
+- uma sessão JWT com validade de sete dias;
+- logout com limpeza intencional do carrinho local;
+- retorno validado para `/`, `/login` ou `/carrinho`;
+- limitação persistente de cadastro e login no PostgreSQL;
+- operação de cadastro com limite de corpo, tipo JSON e origem obrigatória;
+- helper exclusivo do servidor para obter a identidade autenticada.
 
-## Estado da implementação
+Recuperação de senha, envio de verificação de e-mail, vinculação explícita de
+métodos, definição de senha para conta Google e gerenciamento de perfil
+continuam fora do escopo. Endereços, checkout e pedidos usarão o helper de
+identidade quando forem implementados; não existem rotas fictícias para esses
+módulos.
 
-Esta etapa implementa a rota do NextAuth 4 para App Router, o login e logout com
-Google e a página `/login`. O adaptador Prisma usa os modelos `User` e `Account`, e
-a estratégia JWT mantém `session.maxAge` e `jwt.maxAge` em sete dias. O e-mail do
-perfil Google é normalizado antes do adaptador, e perfis sem e-mail utilizável ou
-sem `email_verified: true` são recusados antes da criação de usuário ou vínculo.
+## Usuário e métodos de entrada
 
-Prisma Client, adaptador e opções do NextAuth são inicializados durante a
-requisição. `prisma generate`, `postinstall` e o build continuam sem conexão com o
-banco e sem exigir segredos reais; a aplicação, ao atender autenticação, rejeita
-variáveis ausentes e o placeholder de `NEXTAUTH_SECRET`, sem usar credenciais
-fictícias como fallback. Cadastro e login com senha, vinculação explícita de
-métodos e recuperação de senha continuam pendentes.
+`User` é a identidade interna. Seu UUID não depende do e-mail nem do provedor.
+O e-mail é obrigatório, normalizado com `trim` e lowercase e protegido pela
+restrição única do banco. O nome tem até 120 caracteres, compatível com
+`VARCHAR(120)`. Uma conta local é somente um `User` com `passwordHash`; o
+cadastro não cria um `Account` OAuth e mantém `emailVerified` nulo.
 
-O Route Handler usa o runtime Node.js padrão do App Router, necessário para Prisma
-e NextAuth. Com `cacheComponents` habilitado no Next.js 16, o runtime padrão não é
-redeclarado no segmento porque essa opção rejeita configurações locais de runtime;
-nenhuma parte da autenticação é executada no Edge Runtime.
+`Account` representa somente vínculos OAuth. O Google usa o `sub` como
+`providerAccountId`, com unicidade por provedor e identidade. O perfil precisa
+ter e-mail utilizável e `email_verified: true`. Pontos e sufixos com `+` não são
+removidos. `allowDangerousEmailAccountLinking` não é habilitado.
 
-## Usuário, credencial e conta social
+Se um e-mail já pertencer a qualquer usuário, inclusive uma conta somente
+Google, o cadastro local responde com uma orientação controlada, sem informar o
+método existente. O usuário não é atualizado, não recebe senha e métodos não
+são vinculados automaticamente. Da mesma forma, igualdade de e-mail não permite
+que o callback Google assuma uma conta local.
 
-`User` representa a pessoa que usa a loja. O UUID é o identificador estável e não
-depende do e-mail nem de um provedor. O modelo guarda nome, e-mail, data de
-verificação do e-mail, imagem de perfil e datas de criação e atualização.
+O callback `signIn` trata os provedores separadamente. Google preserva as
+validações de perfil, identidade por `sub` e ausência de vinculação automática.
+Credentials aceita somente o usuário público retornado por `authorize`. Uma
+requisição de entrada iniciada com sessão já autenticada é recusada, evitando
+substituição silenciosa da conta.
 
-O e-mail é obrigatório e único. Toda entrada futura, inclusive cadastro local e
-perfil social, deve remover espaços externos e converter o valor para minúsculas
-antes de consultar ou gravar. A restrição única do banco protege os valores já
-normalizados. Se um provedor não fornecer e-mail, nenhum usuário incompleto deve
-ser criado.
+## Política e hash de senha
 
-`passwordHash` é opcional. O cadastro com e-mail e senha será implementado pela
-aplicação, fora do adaptador: ele validará e normalizará os dados e armazenará
-somente um hash de senha adequado. Uma conta exclusivamente social mantém esse
-campo nulo. A implementação atual não inclui cadastro, validação de senha ou
-provider de credenciais.
+A política confirmada é de 8 a 128 caracteres. Cliente, servidor e testes usam
+o comprimento da string JavaScript, sem `trim`, truncamento ou normalização da
+senha. Frases-senha, espaços e Unicode são aceitos. Não há obrigação de letra
+maiúscula, número ou símbolo.
 
-`Account` registra o vínculo entre um `User` e uma identidade OAuth. O par
-`provider`/`providerAccountId` é único e identifica retornos do Google sem usar o
-e-mail como identidade do provedor. Os demais campos são os tokens e metadados
-esperados pelo adaptador oficial. A chave estrangeira exige um usuário existente e
-remove seus vínculos em cascata se ele for excluído.
+O hash usa `scrypt` assíncrono de `node:crypto` exclusivamente no servidor:
 
-O comportamento seguro permanece o padrão do NextAuth 4: igualdade de e-mail não
-autoriza vinculação automática entre contas. Se o e-mail normalizado já estiver
-associado a outro usuário, o login social deve ser rejeitado e orientar o uso do
-método original. `allowDangerousEmailAccountLinking` não é habilitado. Uma nova
-entrada Google também é recusada quando já existe uma sessão autenticada, evitando
-que outra identidade seja vinculada silenciosamente. Vinculação explícita de
-métodos fica fora desta etapa.
+- `N = 131072`;
+- `r = 8`;
+- `p = 1`;
+- `maxmem = 256 MiB`;
+- salt aleatório de 16 bytes por senha;
+- chave derivada de 64 bytes.
 
-## Sessão JWT
+O valor persistido é versionado como
+`scrypt$1$N$r$p$salt-base64url$hash-base64url`. A leitura exige versão,
+algoritmo, parâmetros, codificação canônica, salt mínimo e tamanho exato do
+hash. A comparação usa `timingSafeEqual` somente depois de conferir os
+comprimentos. Formatos ou parâmetros desconhecidos são recusados.
 
-`session.strategy` é `jwt`, e `session.maxAge` e `jwt.maxAge` são de sete dias. O
-NextAuth gerencia o JWT em cookie de sessão HttpOnly; em produção, HTTPS permite o
-cookie seguro. Dados de autenticação não devem ser copiados para `localStorage`.
+O `authorize` normaliza a entrada, aplica o limite antes do scrypt, consulta
+somente os campos necessários e devolve `id`, `name`, `email` e `image`. Usuário
+inexistente, senha incorreta, conta somente Google e hash inválido produzem a
+mesma resposta de credenciais inválidas. Nos casos sem credencial local, uma
+derivação equivalente é executada com um hash de referência válido para reduzir
+diferenças óbvias de tempo.
 
-Não existe modelo `Session`, pois sessões JWT não são persistidas individualmente
-no PostgreSQL. Também não existe `VerificationToken`, necessário para login por
-link enviado por e-mail, que não faz parte do escopo. `User` e `Account` são os
-únicos modelos exigidos pelo uso atual do adaptador com Google.
+Cada processo aceita no máximo duas derivações scrypt simultâneas, limitando a
+pressão de memória do parâmetro escolhido; excesso momentâneo falha fechado como
+indisponibilidade, sem enfileirar senhas indefinidamente. O limite PostgreSQL
+continua sendo a proteção persistente e compartilhada entre processos.
 
-Cada JWT emitido recebe validade de sete dias. Quando o NextAuth processa uma
-consulta válida de sessão, ele pode reemitir o token e renovar a expiração do
-cookie; portanto, a sessão pode continuar ativa com uso recorrente e expira após o
-período sem renovação. O logout encerra a sessão no navegador e remove o cookie.
-Como não há registro de sessão no banco, não existe revogação individual imediata
-de um JWT já emitido em outro dispositivo. Uma revogação ampla exige trocar o
-`NEXTAUTH_SECRET`, o que invalida todas as sessões, ou adotar posteriormente um
-mecanismo adicional de versão/bloqueio ou sessões persistidas.
+Senha e hash não entram em URL, armazenamento do navegador, logs, props,
+respostas, JWT ou sessão pública.
 
-## Google
+## Limitação de tentativas
 
-Google é o único provedor social no escopo. A rota
-`/api/auth/[...nextauth]`, o callback `/api/auth/callback/google`, a página
-`/login` e os estados de entrada, saída e erro estão implementados. O callback usa
-as verificações `state` e PKCE do provider oficial; não há OAuth manual.
+`AuthRateLimit` mantém ação, chave HMAC-SHA-256, contador, início e expiração da
+janela. A chave usa `NEXTAUTH_SECRET` e não armazena e-mail ou IP em texto puro.
+O `INSERT ... ON CONFLICT DO UPDATE` incrementa ou reinicia cada contador de
+forma atômica sob concorrência. Cada consumo também remove no máximo 50 linhas
+expiradas. Falha no mecanismo fecha o fluxo com indisponibilidade; nunca libera
+tentativas ilimitadas.
 
-O perfil válido usa `sub` como `providerAccountId`, preserva pontos e sufixos com
-`+` no e-mail e aplica somente `trim` e lowercase. O primeiro acesso pode criar
-`User` e `Account`; retornos posteriores procuram primeiro o vínculo estável. A
-sessão enviada à interface contém apenas expiração e `user.id`, `name`, `email` e
-`image`, sem hashes, tokens OAuth ou registros completos do banco. O logger da
-integração registra somente códigos de erro da biblioteca e descarta metadados que
-possam conter perfil, tokens ou segredos.
+Os limites de janela fixa são:
 
-Em execução, as requisições de autenticação exigem `DATABASE_URL`, `NEXTAUTH_URL`,
-`NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. O callback de cada
-ambiente precisa estar cadastrado no Google. O ambiente local usa
-`http://localhost:3000/api/auth/callback/google`.
+| Operação | Chave | Limite | Janela |
+| --- | --- | ---: | ---: |
+| Login | E-mail normalizado | 5 | 15 minutos |
+| Login | Global | 100 | 10 minutos |
+| Cadastro | E-mail normalizado | 3 | 60 minutos |
+| Cadastro | Global | 30 | 10 minutos |
+
+O limite está dentro de `authorize`, portanto chamadas diretas ao callback de
+credenciais também são contadas. No cadastro, o limite agregado é aplicado até
+a payloads estruturalmente inválidos, depois da proteção HTTP e antes da
+validação completa ou do hash. As janelas expiram e não bloqueiam contas
+permanentemente.
+
+O formulário não precisa bloquear visualmente o campo depois de receber
+`TooManyAttempts`. Digitar a senha apenas atualiza o estado React local; uma nova
+requisição ocorre somente ao enviar novamente. Cada envio chega ao callback do
+NextAuth e recebe uma resposta, mas resposta HTTP não significa autenticação
+aceita: durante a janela, `authorize` encerra o fluxo logo após consumir o
+contador, antes da consulta do usuário e do scrypt, e nenhum cookie de sessão é
+emitido. Como o contador está no PostgreSQL, recarregar ou abrir outra aba não o
+contorna. Depois de `expiresAt`, o próximo `upsert` reinicia a janela e permite
+retomar as tentativas.
+
+O ambiente atual não define uma cadeia de proxy confiável. Por isso a aplicação
+não aceita indiscriminadamente `X-Forwarded-For` nem usa IP como chave; o limite
+global fornece proteção agregada mínima. Antes da publicação, a topologia e os
+proxies confiáveis devem ser definidos. Só então um IP obtido dessa fronteira
+poderá gerar outra chave HMAC, sem ser registrado em claro.
+
+## Cadastro HTTP e CSRF
+
+`POST /api/auth/register` aceita somente `application/json`, lê no máximo 8 KiB
+e rejeita campos além de `name`, `email`, `password` e
+`passwordConfirmation`. Campos como `passwordHash`, `userId`, `emailVerified`
+ou privilégios não são aceitos. A origem é obrigatória e precisa coincidir com
+a origem de `NEXTAUTH_URL`; não há CORS amplo. Respostas de autenticação usam
+`Cache-Control: no-store`.
+
+A restrição única de `User.email` é a proteção final contra concorrência. O
+serviço trata `P2002`, portanto duas tentativas simultâneas criam somente um
+usuário. O conflito não modifica a conta vencedora ou uma conta preexistente.
+
+O fluxo de Credentials usa o endpoint, o token CSRF, os cookies HttpOnly e os
+callbacks do próprio NextAuth. A rota de cadastro é da aplicação e aplica sua
+proteção de origem própria; ela não presume que o CSRF do NextAuth cubra outra
+rota.
+
+## Sessão e autorização futura
+
+`session.strategy` permanece `jwt`; `session.maxAge` e `jwt.maxAge` são sete
+dias. O NextAuth mantém o JWT em cookie HttpOnly e usa cookie seguro sob HTTPS.
+Não há tabela `Session`, revogação individual imediata em outro dispositivo nem
+autenticação em `localStorage`.
+
+A sessão pública contém apenas expiração e `user.id`, `name`, `email` e `image`.
+O logger registra códigos do NextAuth e descarta metadados que possam conter
+perfil, token ou segredo.
+
+`getAuthenticatedUserIdentity` valida a sessão no servidor, confere o formato do
+UUID e confirma que o usuário ainda existe, retornando somente seu ID. Operações
+futuras de endereço e pedido deverão usar essa identidade, sem confiar em
+`userId`, `ownerId` ou dados do carrinho enviados pelo cliente.
+
+O carrinho continua local e não é uma credencial. A entrada por Google ou
+credenciais produz a mesma transição de sessão, preservando o carrinho visitante.
+Logout e troca de UUID mantêm as regras da M3: limpeza, isolamento entre contas,
+sincronização entre abas e proteção contra reaplicação de itens antigos.
 
 ## Verificações e pendências
 
-O script `npm run auth:verify` verifica normalização sem remover pontos ou `+`,
-recusa de e-mail ausente ou não verificado, fallback de destinos externos ou
-malformados e ausência de dados sensíveis na sessão pública. Lint, tipos, build e
-verificações HTTP locais complementam essa checagem.
+`npm run credentials:verify` usa exclusivamente o PostgreSQL local
+`sobe_o_som_test`, valida o destino antes de aplicar migrações e limpa apenas
+fixtures e chaves HMAC controladas. A suíte cobre limites 7/8/128/129,
+confirmação, Unicode e espaços, salts, hash inválido, cadastro concorrente,
+conflito Google, limites documentados, concorrência e expiração, origem, retornos
+e sessão pública. Ela inicia a aplicação com diretório de build isolado e
+percorre o callback real de Credentials com CSRF, cookies e consulta de sessão.
+O teste de bloqueio usa uma conta válida: confirma cinco falhas, senha correta
+recusada durante a janela, novo envio e nova aba ainda recusados, ausência de
+sessão e retomada bem-sucedida após expiração controlada no banco de testes.
 
-Em 12/11/2026, foram executados com sucesso `npm run auth:verify`,
-`npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run build` e
-`git diff --check`. Um segundo build passou com as variáveis de banco e
-autenticação vazias no processo, sem mover ou alterar o `.env`. Com o servidor de
-produção local, `/login`, `/api/auth/providers` e `/api/auth/session` responderam
-com status 200 sem autenticação; a lista de providers continha somente Google, e a
-sessão anônima não expôs dados.
+`npm run auth:verify` continua cobrindo perfil Google, normalização, retornos e
+minimização da sessão. As verificações de carrinho, formatação, lint, tipos e
+build complementam a entrega.
 
-O primeiro login real com Google foi concluído em 12/11/2026, exibindo nome e
-e-mail. A sessão permaneceu ativa após F5 e ao abrir `/login` em outra aba. O
-cancelamento da autorização retornou a `/login?error=Callback` em estado
-desconectado. O Prisma Studio mostrou um `User` e um `Account` após esses testes.
-
-Na revisão de 12/11/2026, o botão de logout e um novo login posterior com a mesma
-conta ainda não tinham sido testados. Em 13/11/2026, o responsável confirmou que o
-logout seguido de atualização manteve o usuário desconectado e que um novo login
-com a mesma conta manteve somente um `User` e um `Account`. Continuam pendentes a
-configuração dos ambientes de publicação e os testes do futuro login por
-e-mail/senha.
+O responsável confirmou no navegador cadastro, erros, credenciais, Google, F5,
+duas abas, logout, responsividade e integração com o carrinho. Também confirmou a
+mensagem ao atingir o limite de login; o campo editável não substitui a recusa do
+servidor descrita acima. O OAuth real do Google não é automatizado por esta suíte.
+Testes com tecnologias assistivas dedicadas, configuração final do ambiente de
+publicação, proxy confiável para eventual limite por IP e os módulos posteriores
+da V1 continuam pendentes.

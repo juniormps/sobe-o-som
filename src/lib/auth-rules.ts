@@ -1,14 +1,14 @@
 import type { DefaultSession, Session } from "next-auth";
 import type { GoogleProfile } from "next-auth/providers/google";
 
-const allowedReturnPaths = new Set(["/", "/login"]);
+const allowedReturnPaths = new Set(["/", "/carrinho", "/login"]);
 const defaultReturnPath = "/login";
 const unknownAuthErrorMessage =
     "Não foi possível autenticar sua conta. Tente novamente em instantes.";
 
 const authErrorMessages: Record<string, string> = {
     AccessDenied:
-        "O acesso foi recusado. Confirme que sua conta Google possui um e-mail verificado e tente novamente.",
+        "O acesso foi recusado. Confira o método de entrada e tente novamente.",
     OAuthAccountNotLinked:
         "Já existe uma conta com este e-mail, mas ela não está vinculada a esta identidade Google.",
     OAuthCallback:
@@ -23,6 +23,11 @@ const authErrorMessages: Record<string, string> = {
     configuration:
         "A autenticação está temporariamente indisponível. Tente novamente mais tarde.",
     Signin: "Não foi possível entrar. Tente novamente em instantes.",
+    CredentialsSignin: "E-mail ou senha inválidos.",
+    TooManyAttempts:
+        "Muitas tentativas de entrada. Aguarde alguns minutos e tente novamente.",
+    AuthenticationUnavailable:
+        "A autenticação está temporariamente indisponível. Tente novamente mais tarde.",
 };
 
 export function normalizeEmail(value: unknown) {
@@ -32,7 +37,12 @@ export function normalizeEmail(value: unknown) {
 
     const email = value.trim().toLowerCase();
 
-    if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+$/.test(email)) {
+    if (
+        !email ||
+        email.length > 320 ||
+        /[\u0000-\u001F\u007F-\u009F]/.test(email) ||
+        !/^[^\s@]+@[^\s@]+$/.test(email)
+    ) {
         return null;
     }
 
@@ -80,7 +90,9 @@ export function mapGoogleProfile(profile: GoogleProfile) {
     };
 }
 
-export function getSafeReturnPath(value: unknown): "/" | "/login" {
+export type SafeReturnPath = "/" | "/carrinho" | "/login";
+
+export function getSafeReturnPath(value: unknown): SafeReturnPath {
     if (typeof value !== "string") {
         return defaultReturnPath;
     }
@@ -103,7 +115,7 @@ export function getSafeReturnPath(value: unknown): "/" | "/login" {
             return defaultReturnPath;
         }
 
-        return destination.pathname as "/" | "/login";
+        return destination.pathname as SafeReturnPath;
     } catch {
         return defaultReturnPath;
     }
