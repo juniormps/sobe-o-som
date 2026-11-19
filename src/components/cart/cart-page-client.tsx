@@ -156,11 +156,17 @@ export function CartPageClient() {
                             finalização.
                         </p>
                         <p className="mt-3 text-sm leading-6 text-[#514844]">
-                            Checkout, frete e pedido ainda não fazem parte desta
-                            etapa.
+                            No checkout, você poderá escolher e confirmar um
+                            endereço. Nenhum pedido será criado nesta etapa.
                         </p>
                         <Link
-                            className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#241C19] px-5 py-3 text-center text-sm font-black hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#B63E25]"
+                            className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#241C19] px-5 py-3 text-center text-sm font-black text-white hover:bg-[#B63E25] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#B63E25]"
+                            href="/checkout"
+                        >
+                            Ir para o checkout
+                        </Link>
+                        <Link
+                            className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#241C19] px-5 py-3 text-center text-sm font-black hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#B63E25]"
                             href="/#catalogo"
                         >
                             Continuar explorando

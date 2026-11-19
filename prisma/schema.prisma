@@ -15,8 +15,29 @@ model User {
   image         String?   @db.VarChar(2048)
   passwordHash  String?   @db.VarChar(255)
   accounts      Account[]
+  addresses     Address[]
   createdAt     DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+}
+
+model Address {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  recipient   String   @db.VarChar(120)
+  postalCode  String   @db.Char(8)
+  street      String   @db.VarChar(160)
+  number      String?  @db.VarChar(30)
+  hasNoNumber Boolean  @default(false)
+  complement  String?  @db.VarChar(120)
+  district    String?  @db.VarChar(120)
+  city        String   @db.VarChar(120)
+  state       String   @db.Char(2)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model AuthRateLimit {

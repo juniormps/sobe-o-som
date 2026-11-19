@@ -1,7 +1,7 @@
 import type { DefaultSession, Session } from "next-auth";
 import type { GoogleProfile } from "next-auth/providers/google";
 
-const allowedReturnPaths = new Set(["/", "/carrinho", "/login"]);
+const allowedReturnPaths = new Set(["/", "/carrinho", "/checkout", "/login"]);
 const defaultReturnPath = "/login";
 const unknownAuthErrorMessage =
     "Não foi possível autenticar sua conta. Tente novamente em instantes.";
@@ -90,7 +90,7 @@ export function mapGoogleProfile(profile: GoogleProfile) {
     };
 }
 
-export type SafeReturnPath = "/" | "/carrinho" | "/login";
+export type SafeReturnPath = "/" | "/carrinho" | "/checkout" | "/login";
 
 export function getSafeReturnPath(value: unknown): SafeReturnPath {
     if (typeof value !== "string") {

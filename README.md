@@ -38,7 +38,7 @@
     <a href="#roadmap">Roadmap</a>
 </p>
 
-> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido, o cadastro, os logins com credenciais e Google, a vitrine pública e o carrinho persistente já estão implementados. Checkout e pedidos serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
+> 🚧 **Projeto em desenvolvimento.** A base full stack, o banco de dados, o estoque persistido, a autenticação, a vitrine, o carrinho e a etapa de endereços do checkout já estão implementados. Criação e histórico de pedidos serão entregues nas próximas etapas. Este README diferencia os recursos disponíveis dos planejados.
 
 ---
 
@@ -96,11 +96,12 @@ Esses recursos serão implementados de forma incremental, conforme o [roadmap](#
 | Persistência                    | ✅ Prisma, PostgreSQL, migrações e seed com 6 gêneros e 24 discos fictícios     |
 | Base de estoque                 | ✅ Saldo não negativo no PostgreSQL e seed sem reposição de estoques existentes |
 | Autenticação                    | ✅ Cadastro, e-mail/senha, Google, logout, limites persistentes e sessão JWT    |
-| Verificações de desenvolvimento | ✅ Carrinho, catálogo, autenticação, estoque, formatação, lint, tipos e build   |
+| Verificações de desenvolvimento | ✅ Endereços, CEP, carrinho, autenticação, estoque, qualidade e build           |
 | Interface da loja               | ✅ Home, navegação, busca, filtros, paginação, detalhes e estados responsivos   |
 | Estados de disponibilidade      | ✅ Disponível, esgotado, conflito de saldo e produto indisponível no carrinho   |
 | Carrinho                        | ✅ Context + reducer, persistência local, revalidação em lote e sincronização   |
-| Fluxo de compra                 | ⏳ Endereços, CEP, checkout simulado e pedidos planejados                       |
+| Endereços e CEP                 | ✅ Principal persistido, seleção temporária, confirmação e CEP auxiliar/manual  |
+| Fluxo de compra                 | ⏳ Criação transacional, confirmação e histórico de pedidos planejados          |
 | Proteção de operações           | ✅ Origem do cadastro, CSRF do NextAuth e helper de identidade autenticada      |
 | Testes da loja, CI e publicação | ⏳ Previstos para a primeira versão completa                                    |
 | API Nest.js e Docker            | 🔜 Evolução posterior à entrega da V1                                           |
@@ -135,6 +136,11 @@ A página inicial é a vitrine Mobile First em português do Brasil. A publicaç
 - Sincronização do carrinho entre abas e indicador no header pela soma das unidades.
 - Revalidação em lote de preços, atividade e estoque por `POST /api/cart/resolve`, sem reserva ou escrita no banco.
 - Página `/carrinho` com subtotais em centavos, total estimado, edição, remoção, conflitos de estoque e falha recuperável.
+- Checkout protegido em `/checkout`, com retorno preservado pelos logins Google e por credenciais.
+- Vários endereços por usuário, primeiro endereço principal e alteração explícita dessa preferência.
+- Seleção temporária independente do principal e confirmação do endereço revalidada no servidor, sem confirmar pedido ou alterar o carrinho.
+- Consulta opcional de CEP pelo proxy `/api/cep/[cep]`, cache de sucessos por 24 horas e preenchimento manual sempre disponível.
+- Isolamento dos endereços por proprietário, mutações com sessão e origem validadas e respostas privadas sem cache compartilhado.
 
 A vitrine e o carrinho apenas consultam o estoque persistido. A baixa condicional, a transação do pedido e os testes de concorrência pertencem à M5.2.
 
@@ -159,24 +165,22 @@ A vitrine e o carrinho apenas consultam o estoque persistido. A baixa condiciona
 - Tratar itens inativos ou inexistentes sem expor dados internos e sem apresentar total parcial como completo.
 - Continuar em memória quando o armazenamento falhar e permitir repetir consultas temporariamente indisponíveis.
 
-### 🧾 Checkout — planejado
+### 🧾 Checkout — parcialmente disponível
 
-- Exigir autenticação para concluir a compra simulada.
-- Informar mudanças de preço antes da confirmação.
-- Solicitar endereço brasileiro, selecionar o principal por padrão e permitir escolher ou cadastrar outro no checkout.
-- Preencher dados disponíveis por CEP via servidor, sem impedir preenchimento manual quando a consulta falhar.
-- Não reservar estoque; confirmar a disponibilidade somente ao registrar o pedido.
-- Prevenir pedidos duplicados por clique duplo ou repetição da mesma tentativa.
+- A rota protegida exige autenticação e retorna ao checkout depois de cadastro, credenciais ou Google.
+- O carrinho é restaurado e revalidado antes de decidir entre os estados vazio, indisponível e etapa de endereço.
+- O principal é pré-selecionado; escolher outro ou cadastrar um novo não muda silenciosamente a preferência.
+- A confirmação do endereço consulta novamente sua propriedade no servidor; ela não confirma uma compra ou pedido.
+- A busca de CEP preenche somente logradouro, bairro, cidade e UF disponíveis; respostas atrasadas e edições manuais são preservadas.
+- A falha do ViaCEP não impede o cadastro manual.
+- A etapa ainda não cria pedido, não limpa o carrinho, não baixa estoque e não oferece uma ação de compra sem implementação.
 
 ### 📦 Conta e pedidos
 
-- Cadastro e login com e-mail e senha, além do Google, estão disponíveis.
+- **Disponível:** cadastro, login com senha ou Google e múltiplos endereços cadastrados, selecionados e confirmados na etapa de endereço.
+- **Planejado para a M5.2:** revisão da compra, criação atômica do pedido e itens, snapshot do endereço, baixa condicional, idempotência e testes de concorrência.
+- **Planejado para a M5.3:** confirmação do pedido, histórico paginado e detalhes com dados históricos acessíveis somente ao proprietário.
 - Vinculação de métodos, recuperação de senha e gerenciamento de perfil permanecem fora da V1.
-- Múltiplos endereços vinculados ao cliente, inicialmente cadastrados e selecionados dentro do checkout.
-- Criação do pedido, dos itens, da cópia do endereço confirmado e da baixa condicional de estoque em uma única transação.
-- Confirmação com identificador, data, itens e total.
-- Histórico paginado e detalhes acessíveis somente ao dono do pedido.
-- Preservação do título, artista e preço de cada item no momento da compra.
 
 ---
 
@@ -236,7 +240,7 @@ Browser["Navegador"] --> Pages["Páginas Next.js / React"]
     Prisma --> Database[(PostgreSQL)]
 ```
 
-Para os próximos módulos, a organização prevista separa apresentação, regras de negócio e acesso aos dados. Server Components serão usados nas páginas de dados; Client Components, nas interações. As operações da loja utilizarão Server Actions quando apropriado, mantendo validação e autorização no servidor. A consulta planejada de CEP será a exceção HTTP explícita: `GET /api/cep/[cep]` consultará o ViaCEP pelo servidor e enviará ao provedor somente os oito dígitos necessários.
+Os módulos separam apresentação, regras de negócio e acesso aos dados. Server Components consultam diretamente a camada de dados; Client Components atendem às interações. Mutações de endereço usam Route Handlers JSON protegidos por sessão, origem e limite de corpo. `GET /api/cep/[cep]` é a exceção pública de integração: consulta o destino fixo do ViaCEP pelo servidor e envia ao provedor somente os oito dígitos necessários.
 
 ### Estrutura atual
 
@@ -247,7 +251,10 @@ Para os próximos módulos, a organização prevista separa apresentação, regr
 | `src/app/cadastro/`          | Cadastro por credenciais ou acesso pelo Google             |
 | `src/app/produtos/`          | Detalhes públicos dos discos                               |
 | `src/app/carrinho/`          | Página pública do carrinho                                 |
+| `src/app/checkout/`          | Etapa protegida de seleção e confirmação de endereço       |
 | `src/app/api/cart/resolve/`  | Revalidação pública, em lote e somente leitura             |
+| `src/app/api/addresses/`     | Cadastro e preferência de endereços do usuário autenticado |
+| `src/app/api/cep/`           | Proxy público e limitado para consulta de CEP              |
 | `src/app/api/auth/`          | NextAuth e operação protegida de cadastro                  |
 | `src/components/cart/`       | Provider, ações e interface do carrinho                    |
 | `src/components/storefront/` | Componentes compartilhados da vitrine                      |
@@ -258,13 +265,13 @@ Para os próximos módulos, a organização prevista separa apresentação, regr
 | `src/types/`                 | Tipos complementares, incluindo a sessão                   |
 | `prisma/`                    | Schema, migrações e seed                                   |
 | `prisma.config.ts`           | Configuração de URLs, migrações e seed                     |
-| `scripts/`                   | Verificações de catálogo, estoque, autenticação e ambiente |
+| `scripts/`                   | Verificações de loja, autenticação, endereços, CEP e banco |
 | `public/images/`             | Recursos visuais locais                                    |
 | `docs/`                      | Escopo e documentação técnica                              |
 
-O código utiliza o alias `@/*` para importações a partir de `src/`. As páginas consultam módulos exclusivos do servidor diretamente, sem HTTP interno. `catalog-repository.ts` concentra os predicados Prisma e retornos explícitos; `catalog-data.ts` adiciona a fronteira de requisição do Next e preserva a inicialização tardia de `getPrisma()`.
+O código utiliza o alias `@/*` para importações a partir de `src/`. As páginas consultam módulos exclusivos do servidor diretamente, sem HTTP interno. `catalog-repository.ts` e `address-repository.ts` concentram predicados Prisma e retornos explícitos; as fronteiras de dados preservam a inicialização tardia de `getPrisma()`.
 
-O layout raiz continua como Server Component e delega os providers a um componente cliente único. O carrinho usa Context API e reducer, persiste somente versão, UUID mínimo do proprietário e pares de produto/quantidade. Preços, disponibilidade e estoque são resolvidos no servidor em uma consulta em lote. O identificador local evita transferência entre contas no mesmo navegador, mas não comprova autenticação nem substitui a sessão HttpOnly. Sincronizações de carrinho atribuído aguardam a sessão da outra aba para não apagar os itens durante o retorno do Google; o logout, por decisão de privacidade, descarta itens locais e sincronizações pendentes.
+O layout raiz continua como Server Component e delega os providers a um componente cliente único. O carrinho usa Context API e reducer, persiste somente versão, UUID mínimo do proprietário e pares de produto/quantidade. Preços, disponibilidade e estoque são resolvidos no servidor em uma consulta em lote. O identificador local evita transferência entre contas no mesmo navegador, mas não comprova autenticação nem substitui a sessão HttpOnly. Sincronizações de carrinho atribuído aguardam a sessão da outra aba para não apagar os itens durante o retorno do Google; o logout, por decisão de privacidade, descarta itens locais e sincronizações pendentes. No checkout, logout ou troca de conta também limpa a lista carregada, a seleção, a confirmação e o formulário somente da interface; os endereços persistidos não são excluídos.
 
 Busca, gênero, Sale e página usam `busca`, `genero`, `sale=true` e `pagina` na URL. Parâmetros repetidos ou inválidos são removidos; espaços da busca são normalizados e a entrada é limitada a 80 caracteres; páginas fora do intervalo são ajustadas depois da contagem e antes do cálculo do `offset`. A URL canônica resultante substitui a entrada inválida. Alterar busca ou filtros reinicia a página, enquanto a troca de gênero preserva busca e Sale. “Todos os discos” preserva a busca e limpa gênero e Sale.
 
@@ -289,10 +296,11 @@ A migração será uma evolução do mesmo projeto; a primeira versão terá sua
 | `User`          | Identidade interna, e-mail único e credencial local opcional         |
 | `Account`       | Vínculo entre usuário e identidade OAuth do provedor                 |
 | `AuthRateLimit` | Janelas e contadores técnicos de tentativas de autenticação          |
+| `Address`       | Endereços brasileiros privados, preferência principal e proprietário |
 
 Uma categoria possui vários produtos; um usuário pode possuir vínculos de autenticação. A combinação `provider` + `providerAccountId` é única.
 
-Os modelos `Address`, `Order` e `OrderItem` e o registro versionado de ciência/aceite de privacidade são planejados, não implementados. Não há tabela `Session`, pois a estratégia atual utiliza JWT.
+Os modelos `Order` e `OrderItem` e o registro versionado de ciência/aceite de privacidade são planejados, não implementados. Não há tabela `Session`, pois a estratégia atual utiliza JWT.
 
 ### Decisões de modelagem
 
@@ -301,6 +309,8 @@ Os modelos `Address`, `Order` e `OrderItem` e o registro versionado de ciência/
 - **Sale derivada dos preços:** o preço de referência representa o valor anterior e deve ser maior que o preço atual. A promoção preserva o gênero do disco.
 - **Migrações versionadas**, mantendo o histórico de evolução do banco.
 - **Seed idempotente**, com `upsert` e UUIDs estáveis, sem remoção de registros.
+- **Principal único por usuário**, protegido por transação, bloqueio da linha do usuário e índice único parcial no PostgreSQL.
+- **CEP, UF e número coerentes**, validados na aplicação e por restrições complementares no banco.
 
 `Product.stock` é um inteiro não negativo com default zero, protegido também por `CHECK (stock >= 0)` no PostgreSQL. A migração inicializa uma única vez somente os UUIDs demonstrativos conhecidos; outros produtos preexistentes permanecem com zero. O seed aplica estoques pequenos apenas ao criar produtos e não repõe saldos consumidos nem apaga usuários, contas ou outros registros quando é reexecutado.
 
@@ -329,7 +339,7 @@ O projeto utiliza Prisma **7.10.1**, gerador `prisma-client` com saída explíci
 - Sessão JWT gerenciada em **cookie HttpOnly**, sem armazenamento de autenticação em `localStorage`.
 - Sessão pública limitada à expiração e aos dados necessários de identificação, incluindo o UUID interno do usuário.
 - Validação dos destinos de retorno, evitando redirecionamentos externos indevidos.
-- Retornos aceitos somente para `/`, `/login` e `/carrinho`, preservados entre login e cadastro.
+- Retornos aceitos somente para `/`, `/login`, `/carrinho` e `/checkout`, preservados entre login e cadastro.
 - Cadastro JSON limitado a 8 KiB, mesma origem obrigatória e respostas sem cache; o NextAuth mantém CSRF e cookies do login.
 - Segredos restritos ao servidor e configuração validada quando a autenticação é utilizada.
 
@@ -339,7 +349,7 @@ O fluxo real com Google já foi validado para primeiro acesso, persistência ap�
 
 ### Limites e próximas etapas
 
-O helper exclusivo do servidor obtém a identidade da sessão e confirma a existência do usuário; endereços, checkout e pedidos deverão usá-lo nos respectivos marcos, sem confiar em `userId` ou proprietário de carrinho enviado pelo navegador. Recuperação e verificação de e-mail, vinculação de métodos e definição de senha para conta Google permanecem fora desta entrega.
+O helper exclusivo do servidor obtém a identidade da sessão e confirma a existência do usuário. Endereços e checkout já o utilizam; pedidos deverão reutilizá-lo no marco seguinte, sem confiar em `userId` ou proprietário de carrinho enviado pelo navegador. Recuperação e verificação de e-mail, vinculação de métodos e definição de senha para conta Google permanecem fora desta entrega.
 
 Como a aplicação local atual não está atrás de um proxy confiável, cabeçalhos como `X-Forwarded-For` não são usados para identificar IP. O limite agregado global complementa o limite por identificador. Na publicação, a cadeia de proxies deverá ser definida e validada antes de acrescentar uma chave derivada de IP confiável; nunca se deve aceitar indiscriminadamente um valor enviado pelo cliente.
 
@@ -455,6 +465,7 @@ npm run dev
 - Aplicação: [http://localhost:3000](http://localhost:3000)
 - Autenticação: [http://localhost:3000/login](http://localhost:3000/login)
 - Carrinho: [http://localhost:3000/carrinho](http://localhost:3000/carrinho)
+- Checkout protegido: [http://localhost:3000/checkout](http://localhost:3000/checkout)
 
 ### Build de produção
 
@@ -480,6 +491,8 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 | `stock:verify`                                                                           | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 | `catalog:verify`                                                                         | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 | `cart:verify`                                                                            | Não exige banco; usa consulta controlada em memória                                            |
+| `addresses:verify`                                                                       | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
+| `cep:verify`                                                                             | Não exige banco nem ViaCEP real; usa respostas externas controladas                            |
 | `credentials:verify`                                                                     | `TEST_DATABASE_URL` local apontando exclusivamente para `sobe_o_som_test`                      |
 
 </details>
@@ -496,6 +509,8 @@ O build gera o Prisma Client e compila a aplicação. A configuração de banco 
 npm run auth:verify
 npm run credentials:verify
 npm run cart:verify
+npm run addresses:verify
+npm run cep:verify
 npm run catalog:verify
 npm run stock:verify
 npm run format:check
@@ -509,6 +524,10 @@ O script `auth:verify` verifica regras de autenticação, incluindo normalizaç�
 `credentials:verify` aplica as migrações no PostgreSQL local isolado, usa somente fixtures controladas e cobre validação, scrypt, conflitos e concorrência de cadastro, conta Google sem senha, origem, limites e expiração. Também inicia a aplicação com saída de build isolada e percorre o callback real do Credentials Provider com CSRF, cookies e sessão pública; não automatiza nem declara o OAuth real do Google.
 
 `cart:verify` verifica consolidação, edição, remoção, limites, estoque conhecido, centavos, preço promocional atual, persistência inválida, ciclo de sessão, consulta em lote, indisponibilidade, falha recuperável e descarte de respostas antigas. A suíte usa regras e fronteiras reais com uma consulta controlada em memória; não cria fixtures nem escreve em nenhum banco.
+
+`addresses:verify` aplica as migrações no PostgreSQL local isolado `sobe_o_som_test`, cria apenas usuários e endereços identificados pela suíte e verifica validação, propriedade, sessão ausente, origem, confirmação, primeiro principal, troca explícita e cadastros e alterações concorrentes. A limpeza remove somente essas fixtures.
+
+`cep:verify` usa respostas externas controladas e cobre formatos, zero inicial, sucesso completo e parcial, inexistente, resposta inválida, erro HTTP, rede, timeout, reutilização de sucesso, recuperação após falha, respostas fora de ordem e edições manuais. A suíte não depende da disponibilidade real do ViaCEP.
 
 `catalog:verify` usa os módulos reais de consulta e o PostgreSQL local isolado `sobe_o_som_test`. Ele verifica busca por título e artista, filtros combinados, Sale com esgotado, paginação e ordenação, parâmetros inválidos, vazio, exclusão de inativos e detalhes inexistentes. O script aplica migrações e seed no banco de teste e cria apenas uma fixture inativa controlada, removida ao final.
 
@@ -543,9 +562,19 @@ Na M4, o responsável confirmou manualmente:
 - preservação do carrinho visitante nos dois métodos, limpeza no logout e isolamento entre contas;
 - login e cadastro nas larguras de 320, 390, 768 e 1440 px, com teclado e foco visível.
 
+Na M5.1, o responsável confirmou todos os cenários manuais solicitados:
+
+- retorno ao checkout após cadastro, credenciais e Google, com preservação do carrinho;
+- estados sem endereço e carrinho vazio, cadastro de múltiplos endereços, principal explícito, seleção temporária e confirmação revalidada;
+- consulta auxiliar de CEP, falhas recuperáveis, preenchimento manual e preservação de edições diante de respostas atrasadas;
+- isolamento entre duas contas e limpeza da interface no logout ou troca de conta, sem exclusão dos endereços persistidos;
+- checkout em 320, 390, 768 e 1440 px, com teclado e foco visível.
+
+Essas verificações manuais cobriram os cenários solicitados para a etapa. Não são declarados testes com leitores de tela ou outras tecnologias assistivas dedicadas.
+
 Ao atingir o limite de login, o campo de senha permanece editável por decisão de escopo. Digitar nele altera somente o estado local do formulário e não envia requisição. Cada novo envio chama novamente o callback de credenciais, mas o servidor recusa a tentativa pelo contador persistente antes do scrypt e não cria sessão. Recarregar ou usar outra aba não remove o bloqueio; a janela expira conforme a política documentada.
 
-Essas verificações foram realizadas e confirmadas pelo responsável, não pelo agente de implementação. Checkout, endereços, CEP, pedidos, baixa transacional, configuração final de publicação, validações com tecnologias assistivas dedicadas e demais funcionalidades de marcos posteriores continuam pendentes. As verificações automatizadas não são apresentadas como validação visual ou como repetição do OAuth real.
+Essas verificações foram realizadas e confirmadas pelo responsável, não pelo agente de implementação. A M5.1 está concluída com verificações automatizadas e validação manual. Pedidos, baixa transacional, idempotência, histórico, configuração final de publicação, validações com tecnologias assistivas dedicadas e demais funcionalidades de marcos posteriores continuam pendentes. As verificações automatizadas não são apresentadas como validação visual ou como repetição do OAuth real.
 
 O código utiliza **quatro espaços de indentação**, sem tabulações. Para aplicar a formatação:
 
@@ -562,9 +591,9 @@ npm run format
 | Integração        | Endereços, CEP controlado, estoque, transações, autorização e idempotência   |
 | End-to-end        | Catálogo, carrinho, autenticação, endereço, revisão, pedido e histórico      |
 
-Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda serão incorporados. As verificações atuais de autenticação, carrinho, catálogo e estoque não representam a suíte completa de testes da loja.
+Vitest, React Testing Library, Playwright e o pipeline do GitHub Actions ainda serão incorporados. As verificações atuais de autenticação, carrinho, catálogo, estoque, endereços e CEP não representam a suíte completa de testes da loja.
 
-Os testes planejados cobrirão disputa concorrente pela última unidade, reversão integral de pedidos com vários itens, repetição da confirmação, isolamento dos endereços por usuário e imutabilidade do endereço histórico do pedido. A preservação do estoque ao reexecutar o seed já é verificada em PostgreSQL real isolado. Também serão cobertas consultas de CEP com sucesso, entrada inválida, CEP não encontrado, falha, tempo limite, preenchimento manual e descarte de respostas atrasadas. Concorrência e transações usarão o banco de testes, sem consumir o banco demonstrativo; a API externa será simulada ou controlada nos testes automatizados.
+Os testes planejados de pedidos ainda cobrirão disputa concorrente pela última unidade, reversão integral com vários itens, repetição da confirmação e imutabilidade do endereço histórico. A preservação do estoque, o isolamento e a concorrência dos endereços e as respostas controladas de CEP já possuem verificações dedicadas. Concorrência e transações usam o banco de testes sem consumir o banco demonstrativo; a API externa é simulada nos testes automatizados.
 
 ---
 
@@ -584,6 +613,8 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 | `npm run auth:verify`           | Verifica regras auxiliares de autenticação                |
 | `npm run credentials:verify`    | Verifica cadastro e credenciais com PostgreSQL e NextAuth |
 | `npm run cart:verify`           | Verifica regras, persistência e resolução do carrinho     |
+| `npm run addresses:verify`      | Verifica endereços, propriedade e concorrência isolada    |
+| `npm run cep:verify`            | Verifica ViaCEP controlado, cache e coordenação do form   |
 | `npm run catalog:verify`        | Verifica consultas e normalização do catálogo isolado     |
 | `npm run stock:verify`          | Verifica estoque e seed no banco local isolado            |
 | `npm run prisma:format`         | Formata o schema Prisma                                   |
@@ -613,7 +644,7 @@ Os testes planejados cobrirão disputa concorrente pela última unidade, revers�
 - [x] Implementar a M2 com catálogo, busca, gêneros, Sale, paginação, detalhes e estado esgotado.
 - [x] Implementar a M3 com carrinho persistente atento à disponibilidade, sem reserva.
 - [x] Adicionar cadastro e login com e-mail e senha.
-- [ ] Integrar múltiplos endereços e consulta de CEP na etapa de checkout.
+- [x] Integrar múltiplos endereços e consulta de CEP na etapa de checkout.
 - [ ] Implementar pedidos com baixa transacional, idempotência e testes de concorrência.
 - [ ] Implementar confirmação e histórico de pedidos com cópias dos dados históricos.
 - [ ] Ampliar testes e configurar integração contínua.
@@ -641,6 +672,7 @@ O escopo detalhado e os critérios de aceite estão em [`docs/escopo-projeto-eco
 | ----------------------------------------------------- | ------------------------------------------------------------------------- |
 | [Escopo do projeto](docs/escopo-projeto-ecommerce.md) | Funcionalidades, regras de negócio, identidade visual e plano de evolução |
 | [Modelo de autenticação](docs/auth-model.md)          | Identidades, contas sociais, sessão, decisões e verificações              |
+| [Endereços e CEP](docs/address-model.md)              | Modelo, autorização, principal, checkout e integração pública de CEP      |
 | [Schema Prisma](prisma/schema.prisma)                 | Modelos e relacionamentos implementados                                   |
 | [Migrações](prisma/migrations/)                       | Histórico de alterações no banco                                          |
 | [Variáveis de exemplo](.env.example)                  | Referência para configurar o ambiente local                               |

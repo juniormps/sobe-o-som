@@ -20,17 +20,17 @@ A M4 oferece:
 - cadastro por nome, e-mail, senha e confirmação em `/cadastro`;
 - login por e-mail/senha ou Google em `/login`;
 - uma sessão JWT com validade de sete dias;
-- logout com limpeza intencional do carrinho local;
-- retorno validado para `/`, `/login` ou `/carrinho`;
+- logout com limpeza intencional do carrinho local e do estado privado de endereços exibido;
+- retorno validado para `/`, `/login`, `/carrinho` ou `/checkout`;
 - limitação persistente de cadastro e login no PostgreSQL;
 - operação de cadastro com limite de corpo, tipo JSON e origem obrigatória;
 - helper exclusivo do servidor para obter a identidade autenticada.
 
 Recuperação de senha, envio de verificação de e-mail, vinculação explícita de
 métodos, definição de senha para conta Google e gerenciamento de perfil
-continuam fora do escopo. Endereços, checkout e pedidos usarão o helper de
-identidade quando forem implementados; não existem rotas fictícias para esses
-módulos.
+continuam fora do escopo. A etapa de endereços do checkout reutiliza o helper de
+identidade em todas as operações privadas. Pedidos usarão a mesma fronteira no
+marco seguinte; nenhuma rota de pedido fictícia foi criada.
 
 ## Usuário e métodos de entrada
 
@@ -152,7 +152,7 @@ callbacks do próprio NextAuth. A rota de cadastro é da aplicação e aplica su
 proteção de origem própria; ela não presume que o CSRF do NextAuth cubra outra
 rota.
 
-## Sessão e autorização futura
+## Sessão e autorização
 
 `session.strategy` permanece `jwt`; `session.maxAge` e `jwt.maxAge` são sete
 dias. O NextAuth mantém o JWT em cookie HttpOnly e usa cookie seguro sob HTTPS.
@@ -164,14 +164,18 @@ O logger registra códigos do NextAuth e descarta metadados que possam conter
 perfil, token ou segredo.
 
 `getAuthenticatedUserIdentity` valida a sessão no servidor, confere o formato do
-UUID e confirma que o usuário ainda existe, retornando somente seu ID. Operações
-futuras de endereço e pedido deverão usar essa identidade, sem confiar em
+UUID e confirma que o usuário ainda existe, retornando somente seu ID. Listagem,
+cadastro, alteração do principal e confirmação de endereço usam essa identidade
+e filtram pelo proprietário. Endereço inexistente e endereço de outra conta são
+indistinguíveis. Pedidos também deverão seguir essa regra, sem confiar em
 `userId`, `ownerId` ou dados do carrinho enviados pelo cliente.
 
 O carrinho continua local e não é uma credencial. A entrada por Google ou
 credenciais produz a mesma transição de sessão, preservando o carrinho visitante.
 Logout e troca de UUID mantêm as regras da M3: limpeza, isolamento entre contas,
-sincronização entre abas e proteção contra reaplicação de itens antigos.
+sincronização entre abas e proteção contra reaplicação de itens antigos. Também
+removem da interface a lista, a seleção, a confirmação e o formulário de
+endereço, sem excluir registros `Address` persistidos no PostgreSQL.
 
 ## Verificações e pendências
 
@@ -194,6 +198,9 @@ O responsável confirmou no navegador cadastro, erros, credenciais, Google, F5,
 duas abas, logout, responsividade e integração com o carrinho. Também confirmou a
 mensagem ao atingir o limite de login; o campo editável não substitui a recusa do
 servidor descrita acima. O OAuth real do Google não é automatizado por esta suíte.
+Na M5.1, o responsável também confirmou o retorno ao checkout por credenciais e
+Google, a preservação do carrinho, o isolamento e a limpeza da interface entre
+contas e os demais cenários manuais solicitados para endereços e CEP.
 Testes com tecnologias assistivas dedicadas, configuração final do ambiente de
 publicação, proxy confiável para eventual limite por IP e os módulos posteriores
 da V1 continuam pendentes.

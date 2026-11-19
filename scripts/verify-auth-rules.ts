@@ -49,6 +49,7 @@ assert.equal(
 assert.equal(getSafeReturnPath("/"), "/");
 assert.equal(getSafeReturnPath("/login"), "/login");
 assert.equal(getSafeReturnPath("/carrinho"), "/carrinho");
+assert.equal(getSafeReturnPath("/checkout"), "/checkout");
 assert.equal(getSafeReturnPath("https://example.com"), "/login");
 assert.equal(getSafeReturnPath("//example.com"), "/login");
 assert.equal(getSafeReturnPath("/login?next=/"), "/login");
@@ -66,6 +67,10 @@ assert.equal(
 assert.equal(
     getSafeRedirectUrl("/carrinho", "http://localhost:3000"),
     "http://localhost:3000/carrinho",
+);
+assert.equal(
+    getSafeRedirectUrl("/checkout", "http://localhost:3000"),
+    "http://localhost:3000/checkout",
 );
 
 const publicSession = toPublicSession(

@@ -1,6 +1,6 @@
 # Sobe o Som — escopo e plano de evolução
 
-Versão deste documento: 0.16 · Data: 16/11/2026 · Responsável pelo projeto: Márcio Junior.
+Versão deste documento: 0.18 · Data: 19/11/2026 · Responsável pelo projeto: Márcio Junior.
 
 Este documento registra o escopo a partir da conversa inicial e do planejamento de 03/11/2026. Foram confirmados pelo responsável: nome Sobe o Som, loja de discos de vinil, estilização com Tailwind do início ao fim, NextAuth para autenticação social, Google como único provedor social e os métodos e-mail/senha na V1, preservados na V2. Também estão confirmados: header com categorias abaixo da busca, incluindo Sale; carrossel imediatamente após o header completo; fundo branco ou quase branco no catálogo; frase “Discos para ouvir, capas para guardar”; e rodapé com opções institucionais e de atendimento. A seção 17 detalha a direção visual; cores de apoio e tipografia continuam como proposta.
 
@@ -34,7 +34,7 @@ Imagens devem ser próprias ou ter uso permitido, com créditos quando exigidos.
 
 ## 3. Funcionalidades da V1
 
-Esta seção descreve o objetivo da V1. A base persistente de estoque, a vitrine da M2, o carrinho persistente da M3 e cadastro e credenciais da M4 estão implementados. A baixa transacional e a concorrência de pedidos permanecem para M5.2. Endereços, consulta de CEP, checkout e pedidos ainda não estão disponíveis.
+Esta seção descreve o objetivo da V1. A base persistente de estoque, a vitrine, o carrinho, cadastro e credenciais e a etapa de endereços do checkout estão implementados. A baixa transacional e a concorrência de pedidos permanecem para M5.2; confirmação e histórico de pedidos permanecem para M5.3.
 
 | ID | Funcionalidade | Escopo e critério de aceite |
 | --- | --- | --- |
@@ -61,7 +61,7 @@ Esta seção descreve o objetivo da V1. A base persistente de estoque, a vitrine
 | RF21 | Consulta de CEP | Normalizar e validar CEP no cliente e no servidor; consultar o ViaCEP por `GET /api/cep/[cep]`; preencher dados disponíveis sem bloquear edição ou cadastro manual em caso de ausência ou falha |
 | RF22 | Estoque simples | Manter saldo inteiro não negativo por produto; deixar produtos ativos esgotados visíveis como “Esgotado”; não reservar itens no carrinho; confirmar e baixar o saldo somente ao criar o pedido |
 
-Ao fazer logout, limpar o carrinho local para evitar que outra conta herde itens naquele navegador. Na V1, o carrinho não pertence a uma conta no banco. O armazenamento local contém somente dados de conveniência; os valores nele não autorizam uma compra.
+Ao fazer logout, limpar o carrinho local para evitar que outra conta herde itens naquele navegador. A lista, a seleção, a confirmação e o formulário de endereço também saem da interface, mas os registros `Address` persistidos não são excluídos. Na V1, o carrinho não pertence a uma conta no banco. O armazenamento local contém somente dados de conveniência; os valores nele não autorizam uma compra.
 
 ## 4. Telas e navegação
 
@@ -73,10 +73,10 @@ Ao fazer logout, limpar o carrinho local para evitar que outra conta herde itens
 | `/api/cart/resolve` | Público, somente leitura | Revalidar em lote produtos, preços, atividade e estoque do carrinho |
 | `/cadastro` | Público | Criação de conta |
 | `/login` | Público | Entrada por e-mail/senha e botão “Continuar com Google” |
-| `/checkout` | Autenticado | Cadastro/seleção e confirmação do endereço, revisão e confirmação da compra simulada |
+| `/checkout` | Autenticado, parcialmente implementado | Cadastro, seleção e confirmação do endereço; revisão e confirmação da compra permanecem para M5.2 |
 | `/api/cep/[cep]` | Público com entrada limitada | Route Handler que valida o CEP e consulta o destino fixo do ViaCEP pelo servidor |
-| `/pedidos` | Autenticado | Histórico paginado do cliente |
-| `/pedidos/[id]` | Dono do pedido | Detalhe e confirmação do pedido; evita uma página extra de sucesso |
+| `/pedidos` | Planejado, autenticado | Histórico paginado do cliente na M5.3 |
+| `/pedidos/[id]` | Planejado, dono do pedido | Detalhe e confirmação do pedido na M5.3 |
 | Página não encontrada | Público | Recuperação para navegação válida |
 
 O login iniciado no checkout retorna para ele, preservando o carrinho. Qualquer parâmetro de retorno deve aceitar apenas rotas internas permitidas.
@@ -124,10 +124,10 @@ As demais páginas institucionais do footer não são requisito de implementaç�
 - Quando disponíveis, logradouro, bairro, cidade e UF são preenchidos. Número e complemento residencial são informados pelo cliente. Todos os campos permanecem editáveis, e o preenchimento manual fica sempre disponível.
 - A consulta externa não é condição obrigatória para cadastrar o endereço. Formato válido não comprova existência do CEP nem residência da pessoa.
 - Tratar formato inválido, CEP não encontrado inclusive quando o ViaCEP retornar `erro`, resposta incompleta ou inválida, indisponibilidade, falha de rede e tempo limite. A interface deve orientar preenchimento ou correção sem perder os dados já digitados.
-- Respostas atrasadas não podem sobrescrever um CEP mais recente nem alterações manuais feitas depois do início da consulta. A implementação deverá controlar a requisição vigente e a origem dos valores do formulário.
-- Consultas bem-sucedidas terão cache com revalidação de referência em 24 horas. Falhas temporárias não permanecem nesse cache pelo mesmo período. Isso é uma estratégia de desempenho, não uma afirmação de que CEPs ou dados associados sejam imutáveis.
+- Respostas atrasadas não sobrescrevem um CEP mais recente nem alterações manuais feitas depois do início da consulta. A implementação controla a requisição vigente e a origem dos valores do formulário.
+- Consultas bem-sucedidas usam cache com revalidação de referência em 24 horas. Falhas temporárias não permanecem nesse cache pelo mesmo período. Isso é uma estratégia de desempenho, não uma afirmação de que CEPs ou dados associados sejam imutáveis.
 - A implementação do cache deve respeitar a versão instalada do Next.js e `cacheComponents: true`; não impor um trecho incompatível apenas para reproduzir `fetch` com `revalidate`.
-- A V1 terá somente ViaCEP e fallback manual. Múltiplos provedores, filas e infraestrutura paga não serão adicionados sem necessidade demonstrada.
+- A V1 usa somente ViaCEP como auxílio opcional, com preenchimento manual disponível antes, durante e depois da consulta. Múltiplos provedores, filas e infraestrutura paga não serão adicionados sem necessidade demonstrada.
 
 ### 5.4. Autenticação e acesso
 
@@ -160,13 +160,13 @@ As demais páginas institucionais do footer não são requisito de implementaç�
 
 | Entidade | Estado | Dados centrais e relações |
 | --- | --- | --- |
-| User | Implementada | ID, nome, e-mail único e datas; possui identidades de autenticação; credencial local opcional para usuários sociais; passará a possuir endereços, pedidos e manifestações de privacidade |
+| User | Implementada | ID, nome, e-mail único e datas; possui identidades de autenticação, credencial local opcional e endereços; passará a possuir pedidos e manifestações de privacidade |
 | Account | Implementada | Usuário, provedor e identificador estável da conta, com unicidade do par; campos de credencial/token seguem a biblioteca e só são persistidos quando necessários |
 | AuthRateLimit | Implementada | Contadores técnicos por ação e chave HMAC, com início e expiração da janela; não armazena e-mail ou IP em claro |
 | Session | Não aplicável agora | A estratégia JWT implementada não usa tabela de sessão; reavaliar apenas se a estratégia mudar |
 | Category | Implementada | ID, nome do gênero e slug único; possui produtos |
-| Product | Implementada, com evolução na V1 | Campos de catálogo, preço, Sale, ativo e `stock Int @default(0)`; a interface e a baixa em pedidos serão acrescentadas nos marcos próprios |
-| Address | Planejada para a V1 | Usuário proprietário, destinatário, CEP textual de oito dígitos, logradouro, número ou “sem número”, complemento opcional, bairro quando aplicável, cidade, UF, indicação de principal e datas |
+| Product | Implementada, com evolução na V1 | Catálogo, preço, Sale, ativo, `stock Int @default(0)` e interface de disponibilidade; somente a baixa em pedidos permanece para M5.2 |
+| Address | Implementada na M5.1 | Usuário proprietário, destinatário, CEP textual de oito dígitos, logradouro, número ou “sem número”, complemento opcional, bairro quando aplicável, cidade, UF, indicação de principal e datas |
 | Order | Planejada para a V1 | ID, usuário, total em centavos, data, chave de confirmação, identificação do conteúdo da tentativa e cópia imutável do endereço confirmado; unicidade por usuário e chave |
 | OrderItem | Planejada para a V1 | Pedido, produto, título e artista históricos, preço unitário histórico e quantidade; subtotal derivado |
 | PrivacyNotice | Planejada para a V2 | Documento identificável e versionado apresentado ao usuário, com conteúdo ou referência preservada e datas de vigência |
@@ -188,7 +188,7 @@ As verificações de estoque usam exclusivamente o banco local `sobe_o_som_test`
 | --- | --- |
 | Aplicação | Next.js com App Router, React e TypeScript em modo estrito |
 | Renderização | Server Components para catálogo e páginas de dados; Client Components nas partes interativas |
-| Mutações | Server Actions nas operações da loja; autenticação usa os handlers/actions fornecidos pela biblioteca, sem duplicar os fluxos OAuth |
+| Mutações | Route Handlers JSON protegidos para endereços; autenticação usa os handlers/actions da biblioteca, sem duplicar os fluxos OAuth |
 | Dados | Prisma e PostgreSQL desde o início |
 | Autenticação | NextAuth 4 com Credentials Provider e Google, cadastro próprio protegido e uma única sessão JWT de sete dias |
 | Validação | Schemas de entrada no servidor, com Zod como opção inicial |
@@ -215,9 +215,13 @@ Route Handlers serão usados quando existir necessidade HTTP concreta, incluindo
 
 O navegador chama apenas o Route Handler da aplicação. O servidor valida o parâmetro, consulta o destino fixo do ViaCEP com tempo limite e valida a resposta antes de devolver somente os campos necessários. Nenhuma identificação de usuário acompanha a chamada ao provedor.
 
-Resultados válidos podem ser reutilizados com revalidação de referência em 24 horas; erros de formato, não encontrado, respostas inválidas e falhas temporárias não devem ser tratados como sucesso duradouro. O mecanismo concreto será definido conforme as APIs compatíveis com Next.js 16.4.5 e `cacheComponents: true`, sem copiar uma configuração incompatível de `fetch` apenas para obter `revalidate`.
+Resultados válidos são reutilizados pelo Data Cache com revalidação de referência em 24 horas. Erros de formato, não encontrado, respostas inválidas e falhas temporárias lançam antes da gravação e não são tratados como sucesso duradouro. A implementação usa a API compatível com Next.js 16.4.5 e `cacheComponents: true`.
 
 A interface aceita edição e preenchimento manual durante todo o fluxo. A coordenação no cliente descarta respostas obsoletas para preservar o CEP atual e alterações manuais feitas enquanto uma consulta estava em andamento.
+
+Na M5.1, sucessos validados do ViaCEP usam o Data Cache compatível com `cacheComponents: true` e revalidação de referência em 24 horas. A chamada externa interna usa `no-store`, de modo que CEP inexistente, erro HTTP, timeout e conteúdo inválido lançam antes da gravação do resultado validado. O formulário consulta apenas por ação explícita, evita duplicação em andamento, mantém os campos editáveis e remove preenchimentos automáticos obsoletos ao trocar o CEP sem apagar edições manuais.
+
+O primeiro endereço é promovido a principal dentro de uma transação que bloqueia a linha do usuário. Cadastros posteriores não alteram a preferência. A troca explícita também é atômica, e um índice único parcial no PostgreSQL impede mais de um principal por usuário. Escolha e confirmação no checkout não alteram essa preferência. A confirmação relê o endereço pelo par usuário e ID; ela é apenas estado da interface e não cria rascunho ou pedido.
 
 ## 8. Qualidade e critérios de conclusão da V1
 
@@ -347,7 +351,7 @@ Também ficam fora: microserviços, filas, Redis, Kubernetes, Elasticsearch, Gra
 | M3 | Concluída: carrinho, quantidades, persistência, estados vazios e indisponibilidade, sem reserva de estoque |
 | M4 | Concluída: cadastro, e-mail/senha e Google na mesma sessão, logout, callbacks, scrypt, limites e validação manual conjunta |
 | M5 | Implementar o checkout com endereço, revisão, criação atômica do pedido, confirmação e histórico |
-| M5.1 | Integrar múltiplos endereços e consulta de CEP no checkout, com autorização por proprietário e fallback manual |
+| M5.1 | Concluída: múltiplos endereços e consulta de CEP no checkout, com autorização por proprietário, principal concorrente seguro, confirmação e fallback manual |
 | M5.2 | Implementar revisão e pedido com baixa condicional na mesma transação, snapshots, idempotência e testes de concorrência |
 | M5.3 | Concluir confirmação e histórico de pedidos preservando dados históricos |
 | M6 | Concluir testes prioritários, revisão de acessibilidade, CI, documentação, publicação e tag da V1 |
@@ -429,6 +433,8 @@ As escolhas de escopo e arquitetura são recomendações para este projeto. As r
 | 0.14 | 15/11/2026 | Revisão final da M3 registra validações manuais confirmadas pelo responsável, incluindo responsividade, teclado, F5, login Google, logout, troca de conta, indisponibilidade e duas abas; a corrida que apagava o carrinho visitante no login foi corrigida sem alterar a limpeza intencional no logout; checkout, endereços, CEP, pedidos e baixa transacional permanecem planejados |
 | 0.15 | 16/11/2026 | M4 implementa cadastro e Credentials Provider no NextAuth, senha de 8 a 128 caracteres com scrypt versionado, conflito sem vinculação automática, limites persistentes com chaves HMAC, proteção de origem, retornos para o carrinho e verificação isolada com PostgreSQL, CSRF e cookies; validação manual conjunta permanece pendente |
 | 0.16 | 16/11/2026 | Revisão final da M4 registra as validações manuais confirmadas de cadastro, credenciais, Google, sessão, duas abas, responsividade, logout e carrinho; documenta que editar a senha durante o bloqueio não gera requisição e que novos envios continuam recusados no servidor antes do scrypt até a expiração |
+| 0.17 | 19/11/2026 | M5.1 implementa modelo e migração aditiva de endereços, principal único sob concorrência, autorização por proprietário, checkout protegido, seleção e confirmação sem pedido, proxy ViaCEP com timeout e cache de sucessos, fallback manual e verificações isoladas; validação visual no navegador permanece pendente |
+| 0.18 | 19/11/2026 | Revisão final da M5.1 registra a conclusão da etapa e a confirmação, pelo responsável, de todos os testes manuais solicitados; distingue endereço principal, selecionado e confirmado, confirma CEP auxiliar com preenchimento manual e logout sem exclusão dos endereços persistidos; pedidos, baixa de estoque, idempotência e histórico permanecem planejados |
 
 ## 17. Identidade visual e composição da página inicial
 
@@ -525,8 +531,10 @@ Toda a interface de produção continua sendo implementada com Tailwind, utiliza
 
 Na conclusão da M2, o responsável confirmou manualmente busca por álbum e artista, combinação de filtros, paginação, atualização e voltar/avançar, detalhes de produto disponível, esgotado e inexistente, home e detalhe em 320, 390, 768 e 1440 px, carrossel, teclado e header conectado/desconectado. Um aviso de hidratação com `data-dashlane-rid` desapareceu após desativar a extensão Dashlane; a causa era a injeção da extensão e não exigiu alteração nem supressão no código.
 
-Na conclusão da M3, o responsável confirmou adições pelos cards e detalhe, quantidades, remoção, restauração após F5, estados vazio e indisponível, login Google com preservação do carrinho visitante, limpeza no logout, isolamento entre contas, sincronização entre abas e composição da home, detalhe e carrinho em 320, 390, 768 e 1440 px. O login e duas abas foram retestados depois da correção da corrida de sessão descrita na versão 0.14. Navegação por teclado e foco visível também foram conferidos; testes com tecnologias assistivas dedicadas não foram declarados como realizados. Checkout, endereços, CEP, pedidos, baixa transacional e a revisão completa da V1 permanecem pendentes.
+Na conclusão da M3, o responsável confirmou adições pelos cards e detalhe, quantidades, remoção, restauração após F5, estados vazio e indisponível, login Google com preservação do carrinho visitante, limpeza no logout, isolamento entre contas, sincronização entre abas e composição da home, detalhe e carrinho em 320, 390, 768 e 1440 px. O login e duas abas foram retestados depois da correção da corrida de sessão descrita na versão 0.14. Navegação por teclado e foco visível também foram conferidos; testes com tecnologias assistivas dedicadas não foram declarados como realizados.
 
 Na conclusão da M4, o responsável confirmou cadastro e validações, credenciais inválidas e válidas, conflito de e-mail, login Google, sessão após F5 e em duas abas, atualização do header, logout, preservação e isolamento do carrinho e responsividade de login e cadastro em 320, 390, 768 e 1440 px, incluindo teclado e foco visível. A mensagem de limite de login também foi confirmada; manter o campo editável não envia requisição durante a digitação nem desativa a recusa persistente aplicada a cada novo envio. Testes com tecnologias assistivas dedicadas e a configuração final de publicação não foram declarados como concluídos.
+
+Na conclusão da M5.1, o responsável confirmou todos os testes manuais solicitados: retorno ao checkout por cadastro, credenciais e Google com carrinho preservado; estados vazio e sem endereço; múltiplos endereços; distinção entre principal persistido, seleção temporária e confirmação revalidada; consulta auxiliar de CEP e preenchimento manual; falhas e respostas atrasadas; isolamento entre duas contas; limpeza da interface no logout sem excluir endereços; e responsividade em 320, 390, 768 e 1440 px com teclado e foco visível. Não são declarados testes com leitores de tela ou outras tecnologias assistivas dedicadas. Pedidos, baixa transacional, idempotência e histórico permanecem planejados.
 
 A proposta pode ser avaliada em uma composição demonstrativa da home antes da implementação. Álbuns, capas geométricas e preços usados nessa composição são ilustrativos e não estabelecem o catálogo definitivo.
